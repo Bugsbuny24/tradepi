@@ -1,7 +1,7 @@
 <template>
   <div class="page">
 
-    <!-- TOP BAR -->
+    <!-- TOPBAR -->
     <header class="topbar">
       <div class="logo">π TRADEPIGLOBAL</div>
 
@@ -25,20 +25,18 @@
       </p>
     </section>
 
-    <!-- MODES GRID -->
+    <!-- GRID -->
     <section class="grid">
-      <div
-        v-for="m in modes"
-        :key="m.title"
-        class="card"
-      >
+      <div v-for="m in modes" :key="m.title" class="card">
+        <div class="glow-line"></div>
+
         <h3>{{ m.title }}</h3>
         <p>{{ m.subtitle }}</p>
+
         <button>Enter Mode</button>
       </div>
     </section>
 
-    <!-- FOOTER -->
     <footer class="footer">
       Direct trade • No escrow • Global access
     </footer>
@@ -56,11 +54,11 @@ const modes = [
   { title:"CREATOR MARKET", subtitle:"Digital services & skills" },
   { title:"PRINT-ON-DEMAND", subtitle:"Custom printed products" },
 
-  { title:"FULFILLMENT HUB", subtitle:"Supplier logistics system" },
-  { title:"ON-DEMAND ORDERS", subtitle:"Custom production requests" },
+  { title:"FULFILLMENT HUB", subtitle:"Supplier logistics" },
+  { title:"ON-DEMAND ORDERS", subtitle:"Custom production" },
   { title:"CODE MARKET", subtitle:"Scripts & dev assets" },
 
-  { title:"DIGITAL ASSETS", subtitle:"Themes, UI, templates" },
+  { title:"DIGITAL ASSETS", subtitle:"Themes & templates" },
 ];
 </script>
 
@@ -70,41 +68,37 @@ body{
   font-family:Arial, Helvetica, sans-serif;
 }
 
+/* BACKGROUND */
 .page{
   min-height:100vh;
   color:white;
   background:
-    radial-gradient(circle at 20% 20%, #0f1c3d, transparent 40%),
-    #020617;
+    radial-gradient(circle at 50% 0%, #0b1a3a, transparent 40%),
+    linear-gradient(#020617,#000814);
 }
 
 /* TOPBAR */
-
 .topbar{
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  padding:20px 40px;
-  backdrop-filter: blur(8px);
-  background:rgba(0,0,0,.35);
-  border-bottom:1px solid rgba(0,150,255,.2);
+  padding:18px 40px;
+  backdrop-filter:blur(10px);
+  background:rgba(0,0,0,.4);
+  border-bottom:1px solid rgba(0,150,255,.25);
 }
 
 .logo{
-  font-weight:bold;
-  letter-spacing:2px;
   color:#38bdf8;
+  letter-spacing:2px;
 }
 
-.actions button{
-  margin-left:12px;
-}
+.actions button{ margin-left:10px; }
 
 .ghost{
   background:none;
   border:1px solid #1e293b;
   color:#94a3b8;
-  padding:8px 14px;
+  padding:7px 14px;
   border-radius:8px;
 }
 
@@ -117,68 +111,70 @@ body{
 }
 
 /* HERO */
-
 .hero{
   text-align:center;
-  padding:80px 20px 40px;
+  padding:70px 20px 30px;
 }
 
 .hero h1{
-  font-size:42px;
-  margin:0;
+  font-size:40px;
   letter-spacing:2px;
 }
 
 .hero span{
   color:#38bdf8;
-  text-shadow:0 0 12px #38bdf8;
+  text-shadow:0 0 18px #38bdf8;
 }
 
 .hero p{
   color:#94a3b8;
-  margin-top:16px;
 }
 
 /* GRID */
-
 .grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
-  gap:28px;
+  gap:30px;
   max-width:1100px;
-  margin:40px auto;
+  margin:30px auto;
   padding:20px;
 }
 
+/* CARD = FUTURISTIC PANEL */
 .card{
-  background:linear-gradient(145deg,#020617,#0b1120);
-  border:1px solid rgba(56,189,248,.25);
-  padding:30px;
-  border-radius:16px;
-  text-align:center;
-  transition:.35s;
   position:relative;
+  background:linear-gradient(180deg,#020617,#050c1f);
+  border-radius:18px;
+  padding:30px;
+  text-align:center;
   overflow:hidden;
+
+  border:1px solid rgba(56,189,248,.25);
+  box-shadow:
+    inset 0 0 30px rgba(0,150,255,.08),
+    0 0 10px rgba(0,150,255,.15);
+
+  transition:.35s;
 }
 
-/* Neon Glow */
-.card::before{
-  content:"";
+/* Moving light line */
+.glow-line{
   position:absolute;
-  inset:0;
-  background:linear-gradient(120deg,transparent,rgba(56,189,248,.3),transparent);
-  opacity:0;
-  transition:.4s;
+  height:2px;
+  width:120%;
+  background:linear-gradient(90deg,transparent,#38bdf8,transparent);
+  top:0;
+  left:-20%;
+  opacity:.6;
 }
 
+/* Hover effects */
 .card:hover{
-  transform:translateY(-8px) scale(1.02);
-  box-shadow:0 0 25px rgba(56,189,248,.35);
+  transform:translateY(-10px) scale(1.03);
+  box-shadow:
+    inset 0 0 40px rgba(0,150,255,.2),
+    0 0 30px rgba(56,189,248,.5);
   border-color:#38bdf8;
-}
-
-.card:hover::before{
-  opacity:1;
 }
 
 .card h3{
@@ -192,17 +188,17 @@ body{
 }
 
 .card button{
-  margin-top:16px;
-  background:#2563eb;
-  border:none;
+  margin-top:18px;
   padding:10px 18px;
-  border-radius:8px;
+  background:linear-gradient(90deg,#2563eb,#38bdf8);
+  border:none;
+  border-radius:10px;
   color:white;
   cursor:pointer;
+  box-shadow:0 0 12px rgba(56,189,248,.6);
 }
 
 /* FOOTER */
-
 .footer{
   text-align:center;
   padding:30px;
