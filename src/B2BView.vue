@@ -79,3 +79,24 @@ const filtered = computed(()=>{
   )
 })
 </script>
+<!-- RFQ MODAL -->
+<div v-if="showRFQ" class="modal">
+
+  <div class="modal-box">
+
+    <h2>Send RFQ</h2>
+
+    <input v-model="rfq.qty" placeholder="Quantity"/>
+    <textarea v-model="rfq.req" placeholder="Requirements"/>
+    <input v-model="rfq.country" placeholder="Target country"/>
+    <input v-model="rfq.budgetMin" placeholder="Budget min"/>
+    <input v-model="rfq.budgetMax" placeholder="Budget max"/>
+
+    <div class="actions">
+      <button @click="sendRFQ">Submit</button>
+      <button @click="closeRFQ">Cancel</button>
+    </div>
+
+  </div>
+
+</div>
