@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+// İki kat yukarı çıkıp lib'e giriyoruz
+import { supabase } from '../../lib/supabase'
 
 export default function Listings() {
   const [listings, setListings] = useState<any[]>([])
