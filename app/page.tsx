@@ -1,106 +1,130 @@
-import React from 'react';
-import Link from 'next/link';
-import { 
-  ShoppingCart, Users, Palette, 
-  Terminal, Cpu, Globe, 
-  Zap, Shield, Layers 
-} from 'lucide-react';
+"use client";
 
-export default function TradepiGlobalHome() {
+import Link from "next/link";
+
+const modes = [
+  {
+    title: "TRADE MODE",
+    subtitle: "Global B2B Showroom",
+    color:
+      "from-blue-500/20 to-blue-700/20 border-blue-400/40 hover:shadow-[0_0_40px_rgba(59,130,246,0.5)]",
+    items: ["Find Suppliers", "Create RFQ", "Bulk Trading"],
+    href: "/trade",
+  },
+  {
+    title: "MARKET MODE",
+    subtitle: "Global Marketplace",
+    color:
+      "from-green-500/20 to-green-700/20 border-green-400/40 hover:shadow-[0_0_40px_rgba(34,197,94,0.5)]",
+    items: ["Buy & Sell", "Retail Trade", "Quick Deals"],
+    href: "/market",
+  },
+  {
+    title: "SERVICES MODE",
+    subtitle: "Freelance & Digital Work",
+    color:
+      "from-purple-500/20 to-purple-700/20 border-purple-400/40 hover:shadow-[0_0_40px_rgba(168,85,247,0.5)]",
+    items: ["Hire Experts", "Offer Services", "Remote Work"],
+    href: "/services",
+  },
+  {
+    title: "DIGITAL ASSETS",
+    subtitle: "Code • Themes • Templates",
+    color:
+      "from-orange-500/20 to-orange-700/20 border-orange-400/40 hover:shadow-[0_0_40px_rgba(249,115,22,0.5)]",
+    items: ["Plugins", "UI Kits", "Source Code"],
+    href: "/digital",
+  },
+];
+
+export default function Home() {
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-mono selection:bg-yellow-500/30">
-      
+    <main className="min-h-screen text-white bg-[#070B14] bg-[radial-gradient(circle_at_20%_20%,#0f1b3d,transparent_40%)]">
       {/* NAVBAR */}
-      <nav className="flex justify-between items-center p-6 border-b border-white/5 bg-black/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-tr from-yellow-600 to-yellow-400 rounded-lg flex items-center justify-center text-black font-black text-2xl shadow-[0_0_20px_rgba(234,179,8,0.3)]">π</div>
-          <span className="text-2xl font-black tracking-tighter uppercase italic italic">TRADEPI<span className="text-yellow-500">GLOBALL</span></span>
+      <nav className="flex justify-between items-center px-12 py-6 border-b border-white/10">
+        <div className="text-xl font-semibold tracking-widest">
+          TradePiGlobal
         </div>
-        <div className="hidden lg:flex gap-8 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-500">
-          <Link href="/market" className="hover:text-yellow-500 transition">Market</Link>
-          <Link href="/nodes" className="hover:text-yellow-500 transition">Nodes</Link>
-          <Link href="/auth" className="bg-white/5 border border-white/10 px-6 py-2 rounded-full hover:bg-yellow-500 hover:text-black transition">Access Portal</Link>
+
+        <div className="flex gap-10 text-sm text-white/70">
+          <Link href="#">Explore</Link>
+          <Link href="#">How it Works</Link>
+          <Link href="#">Trust & Safety</Link>
+        </div>
+
+        <div className="flex gap-4">
+          <Link
+            href="/login"
+            className="px-5 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10"
+          >
+            Login
+          </Link>
+
+          <Link
+            href="/register"
+            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500"
+          >
+            Join
+          </Link>
         </div>
       </nav>
 
-      {/* HERO SECTION */}
-      <section className="pt-24 pb-16 text-center px-4 relative">
-        <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-yellow-500/5 blur-[150px] rounded-full -z-10"></div>
-        <h1 className="text-5xl md:text-8xl font-black mb-6 tracking-tighter uppercase leading-none">
-          GLOBAL TRADE <br/> <span className="text-yellow-500 text-outline">NEW ECONOMY</span>
+      {/* HERO */}
+      <section className="text-center mt-20">
+        <h1 className="text-5xl font-bold tracking-widest mb-6">
+          GLOBAL TRADE CONSOLE
         </h1>
-        <p className="text-gray-500 max-w-2xl mx-auto text-xs md:text-sm mb-10 uppercase tracking-[0.4em] leading-relaxed">
-          Powered by Pi Network | Cross-Border B2B Ecosystem
+
+        <p className="text-white/60 max-w-xl mx-auto">
+          Choose your trading environment and connect globally with buyers,
+          suppliers and service providers.
         </p>
+
+        <div className="flex justify-center gap-6 mt-6 text-xs text-white/50">
+          <span>✔ Non-custodial</span>
+          <span>✔ Direct Buyer–Seller</span>
+          <span>✔ B2B Focused</span>
+        </div>
       </section>
 
-      {/* 6 YENİ İSİMLİ MODÜL */}
-      <section className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
-        
-        {/* B2B -> TRADE-CORE */}
-        <div className="group border border-white/5 p-8 rounded-3xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-yellow-500/30 transition-all">
-          <Layers className="text-yellow-500 mb-6 w-8 h-8" />
-          <h3 className="font-black text-xl mb-3 uppercase tracking-tight">Trade-Core (B2B)</h3>
-          <p className="text-gray-500 text-[10px] leading-relaxed uppercase tracking-widest">Kurumsal toptan alım ve global tedarik zinciri entegrasyonu.</p>
-        </div>
+      {/* MODE GRID */}
+      <section className="grid grid-cols-2 gap-10 px-32 mt-20">
+        {modes.map((mode, i) => (
+          <Link key={i} href={mode.href}>
+            <div
+              className={`p-10 rounded-2xl bg-gradient-to-br ${mode.color}
+              backdrop-blur-xl border shadow-2xl
+              transition duration-300 hover:scale-[1.03] cursor-pointer`}
+            >
+              <h2 className="text-2xl font-semibold tracking-wide">
+                {mode.title}
+              </h2>
 
-        {/* C2C -> USER-NODE */}
-        <div className="group border border-white/5 p-8 rounded-3xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-blue-500/30 transition-all">
-          <Users className="text-blue-500 mb-6 w-8 h-8" />
-          <h3 className="font-black text-xl mb-3 uppercase tracking-tight">User-Node (C2C)</h3>
-          <p className="text-gray-500 text-[10px] leading-relaxed uppercase tracking-widest">Bireysel ilanlar ve güvenli eşler arası (P2P) ticaret ağı.</p>
-        </div>
+              <p className="text-white/60 mt-2">{mode.subtitle}</p>
 
-        {/* FIVERR -> JOB-FORGE */}
-        <div className="group border border-white/5 p-8 rounded-3xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-green-500/30 transition-all">
-          <Zap className="text-green-500 mb-6 w-8 h-8" />
-          <h3 className="font-black text-xl mb-3 uppercase tracking-tight">Job-Forge (Skills)</h3>
-          <p className="text-gray-500 text-[10px] leading-relaxed uppercase tracking-widest">Dijital yetenekler ve freelance hizmetlerin Pi ile takası.</p>
-        </div>
+              <ul className="mt-6 space-y-2 text-sm text-white/70">
+                {mode.items.map((item, idx) => (
+                  <li key={idx}>• {item}</li>
+                ))}
+              </ul>
 
-        {/* CODECANYON -> SOURCE-PI */}
-        <div className="group border border-white/5 p-8 rounded-3xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-purple-500/30 transition-all">
-          <Cpu className="text-purple-500 mb-6 w-8 h-8" />
-          <h3 className="font-black text-xl mb-3 uppercase tracking-tight">Source-Pi (Scripts)</h3>
-          <p className="text-gray-500 text-[10px] leading-relaxed uppercase tracking-widest">Yazılım modülleri, hazır scriptler ve dijital varlık kütüphanesi.</p>
-        </div>
-
-        {/* PRINTIFY/DROPSHIPPING -> FLOW-SHIP */}
-        <div className="group border border-white/5 p-8 rounded-3xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-orange-500/30 transition-all">
-          <Globe className="text-orange-500 mb-6 w-8 h-8" />
-          <h3 className="font-black text-xl mb-3 uppercase tracking-tight">Flow-Ship (POD)</h3>
-          <p className="text-gray-500 text-[10px] leading-relaxed uppercase tracking-widest">Stoksuz satış ve kişiselleştirilmiş ürün üretim kanalları.</p>
-        </div>
-
-        {/* LOGIN -> SECURE-AUTH */}
-        <div className="group border border-white/5 p-8 rounded-3xl bg-white/[0.02] hover:bg-white/[0.05] hover:border-red-500/30 transition-all">
-          <Shield className="text-red-500 mb-6 w-8 h-8" />
-          <h3 className="font-black text-xl mb-3 uppercase tracking-tight">Secure-Auth</h3>
-          <p className="text-gray-500 text-[10px] leading-relaxed uppercase tracking-widest">Pi Mainnet entegreli satıcı ve kullanıcı giriş protokolleri.</p>
-        </div>
-
-      </section>
-
-      {/* TERMINAL SECTION */}
-      <section className="max-w-7xl mx-auto px-6 mb-20">
-        <div className="bg-[#0c0c0c] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="bg-white/5 px-6 py-3 border-b border-white/5 flex justify-between items-center">
-            <div className="flex gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-500/50"></div>
-              <div className="w-3 h-3 rounded-full bg-green-500/50"></div>
+              <div className="mt-8 inline-block px-6 py-3 bg-white/10 rounded-lg hover:bg-white/20">
+                Enter Mode
+              </div>
             </div>
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Mainnet Deployment Terminal</span>
-          </div>
-          <div className="p-6 text-[11px] font-mono leading-relaxed">
-            <p className="text-blue-400"># Initializing Tradepi_Global_Engine...</p>
-            <p className="text-gray-500">Checking Supabase connection... [OK]</p>
-            <p className="text-gray-500">Syncing Pi Network SDK v2.0... [OK]</p>
-            <p className="text-green-500 mt-2">&gt; ALL SYSTEMS OPERATIONAL. READY FOR GLOBAL SCALE.</p>
-          </div>
-        </div>
+          </Link>
+        ))}
       </section>
 
-    </div>
+      {/* TRUST BAR */}
+      <section className="mt-24 border-t border-white/10 py-10 text-center text-white/50 text-sm">
+        Direct trade • No escrow • Transparent connections • Global access
+      </section>
+
+      {/* FOOTER */}
+      <footer className="text-center text-xs text-white/40 pb-10">
+        TradePiGlobal is a non-intermediary B2B showroom platform.
+      </footer>
+    </main>
   );
 }
