@@ -14,6 +14,7 @@ export default function RootLayout({
         </nav>
 
         <main className="p-6">{children}</main>
+     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
       </body>
     </html>
   )
