@@ -79,6 +79,50 @@ const filtered = computed(()=>{
   )
 })
 </script>
+const showRFQ = ref(false)
+const selectedListing = ref(null)
+
+const rfq = ref({
+  qty:"",
+  req:"",
+  country:"",
+  budgetMin:"",
+  budgetMax:""
+})
+
+function openRFQ(listing){
+  selectedListing.value = listing
+  showRFQ.value = true
+}
+
+function closeRFQ(){
+  showRFQ.value = false
+}
+
+async function sendRFQ(){
+
+  const { error } = await supabase
+    .from("rfq_requests")
+    .insert({
+      listing_id: selectedListing.value.id,
+      buyer_id: "00000000-0000-0000-0000-000000000000", // TEMP
+      quantity: rfq.value.qty,
+      requirements: rfq.value.req,
+      target_country: rfq.value.country,
+      budget_min: rfq.value.budgetMin,
+      budget_max: rfq.value.budgetMax,
+      status: "open"
+    })
+
+  if(error){
+    alert("Error sending RFQ")
+    console.log(error)
+    return
+  }
+
+  alert("RFQ sent 🚀")
+  closeRFQ()
+}
 <!-- RFQ MODAL -->
 <div v-if="showRFQ" class="modal">
 
