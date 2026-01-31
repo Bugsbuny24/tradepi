@@ -40,29 +40,30 @@ const modes = [
 export default function Home() {
   return (
     <main className="min-h-screen text-white bg-[#070B14] bg-[radial-gradient(circle_at_20%_20%,#0f1b3d,transparent_40%)]">
+      
       {/* NAVBAR */}
-      <nav className="flex justify-between items-center px-12 py-6 border-b border-white/10">
-        <div className="text-xl font-semibold tracking-widest">
+      <nav className="flex justify-between items-center px-6 md:px-12 py-6 border-b border-white/10">
+        <div className="text-lg md:text-xl font-semibold tracking-widest">
           TradePiGlobal
         </div>
 
-        <div className="flex gap-10 text-sm text-white/70">
+        <div className="hidden md:flex gap-10 text-sm text-white/70">
           <Link href="#">Explore</Link>
           <Link href="#">How it Works</Link>
           <Link href="#">Trust & Safety</Link>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <Link
             href="/login"
-            className="px-5 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10"
+            className="px-4 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 text-sm"
           >
             Login
           </Link>
 
           <Link
             href="/register"
-            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500"
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm"
           >
             Join
           </Link>
@@ -70,8 +71,8 @@ export default function Home() {
       </nav>
 
       {/* HERO */}
-      <section className="text-center mt-20">
-        <h1 className="text-5xl font-bold tracking-widest mb-6">
+      <section className="text-center mt-16 md:mt-24 px-6">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-widest mb-6">
           GLOBAL TRADE CONSOLE
         </h1>
 
@@ -80,7 +81,7 @@ export default function Home() {
           suppliers and service providers.
         </p>
 
-        <div className="flex justify-center gap-6 mt-6 text-xs text-white/50">
+        <div className="flex flex-wrap justify-center gap-4 mt-6 text-xs text-white/50">
           <span>✔ Non-custodial</span>
           <span>✔ Direct Buyer–Seller</span>
           <span>✔ B2B Focused</span>
@@ -88,15 +89,15 @@ export default function Home() {
       </section>
 
       {/* MODE GRID */}
-      <section className="grid grid-cols-2 gap-10 px-32 mt-20">
+      <section className="grid md:grid-cols-2 gap-8 px-6 md:px-24 mt-16 md:mt-24">
         {modes.map((mode, i) => (
           <Link key={i} href={mode.href}>
             <div
-              className={`p-10 rounded-2xl bg-gradient-to-br ${mode.color}
+              className={`p-8 md:p-10 rounded-2xl bg-gradient-to-br ${mode.color}
               backdrop-blur-xl border shadow-2xl
               transition duration-300 hover:scale-[1.03] cursor-pointer`}
             >
-              <h2 className="text-2xl font-semibold tracking-wide">
+              <h2 className="text-xl md:text-2xl font-semibold tracking-wide">
                 {mode.title}
               </h2>
 
@@ -117,14 +118,15 @@ export default function Home() {
       </section>
 
       {/* TRUST BAR */}
-      <section className="mt-24 border-t border-white/10 py-10 text-center text-white/50 text-sm">
+      <section className="mt-20 border-t border-white/10 py-8 text-center text-white/50 text-sm px-6">
         Direct trade • No escrow • Transparent connections • Global access
       </section>
 
       {/* FOOTER */}
-      <footer className="text-center text-xs text-white/40 pb-10">
+      <footer className="text-center text-xs text-white/40 pb-10 px-6">
         TradePiGlobal is a non-intermediary B2B showroom platform.
       </footer>
+
     </main>
   );
 }
