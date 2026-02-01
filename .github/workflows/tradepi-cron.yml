@@ -1,0 +1,49 @@
+name: TradePi Cron Jobs
+
+on:
+  schedule:
+    # Her 10 dakikada bir (UTC). İstersen değiştiririz.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  auto_release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call auto-release (with retries)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          MIN_TRUST: ${{ secrets.MIN_TRUST }}
+        run: |
+          set -euo pipefail
+
+          BASE_URL="https://tradepigloball.co"
+          TRUST="${MIN_TRUST:-60}"
+
+          URL="$BASE_URL/api/cron/auto-release?minTrust=$TRUST"
+
+          echo "Calling: $URL"
+
+          # 3 retry + backoff
+          for i in 1 2 3; do
+            echo "Attempt $i..."
+            HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+              -H "x-cron-secret: ${CRON_SECRET}" \
+              --connect-timeout 10 --max-time 30 \
+              "$URL" || true)
+
+            cat /tmp/resp.json || true
+            echo ""
+
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              echo "✅ Success: HTTP $HTTP_CODE"
+              exit 0
+            fi
+
+            echo "❌ Failed: HTTP $HTTP_CODE"
+            sleep $((i * 5))
+          done
+
+          echo "🚨 All retries failed"
+          exit 1
