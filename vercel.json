@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-release?minTrust=60&secret=@cron_secret",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/auto-cancel?secret=@cron_secret",
+      "schedule": "0 */2 * * *"
+    }
+  ]
+}
