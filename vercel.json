@@ -1,9 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/auto-release?minTrust=60", "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/auto-cancel", "schedule": "0 2 * * *" }
-  ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ]
-}
