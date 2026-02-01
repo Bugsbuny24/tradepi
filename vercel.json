@@ -1,11 +1,11 @@
 {
   "crons": [
     {
-      "path": "/api/cron/auto-release?minTrust=60&secret=@cron_secret",
+      "path": "/api/cron/auto-release?minTrust=60&secret=KANKA_SUPER_SECRET_123",
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/auto-cancel?secret=@cron_secret",
+      "path": "/api/cron/auto-cancel?secret=KANKA_SUPER_SECRET_123",
       "schedule": "0 */2 * * *"
     }
   ]
