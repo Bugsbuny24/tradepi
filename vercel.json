@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/auto-cancel",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
