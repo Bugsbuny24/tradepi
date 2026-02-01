@@ -1,23 +1,35 @@
 import { createRouter, createWebHistory } from "vue-router"
 
-import Home from "../views/HomeView.vue"
-import B2B from "../views/B2BView.vue"
-import B2C from "../views/B2CView.vue"
-import C2C from "../views/C2CView.vue"
-import Services from "../views/ServicesView.vue"
-import Digital from "../views/DigitalView.vue"
-import RFQ from "../views/RFQView.vue"
-import Profile from "../views/ProfileView.vue"
+import HomeView from "../views/HomeView.vue"
+
+// B2B (ayrık sayfalar)
+import B2BProductsView from "../views/b2b/B2BProductsView.vue"
+import B2BProductDetailView from "../views/b2b/B2BProductDetailView.vue"
+import B2BRFQCreateView from "../views/b2b/B2BRFQCreateView.vue"
+
+// Placeholders (kopya değil, sadece yön tabelası)
+import B2CStub from "../views/stubs/B2CStub.vue"
+import C2CStub from "../views/stubs/C2CStub.vue"
+import ServicesStub from "../views/stubs/ServicesStub.vue"
+import CodeStub from "../views/stubs/CodeStub.vue"
+import PodStub from "../views/stubs/PodStub.vue"
+import DropshipStub from "../views/stubs/DropshipStub.vue"
 
 const routes = [
-  { path: "/", component: Home },
-  { path: "/b2b", component: B2B },
-  { path: "/b2c", component: B2C },
-  { path: "/c2c", component: C2C },
-  { path: "/services", component: Services },
-  { path: "/digital", component: Digital },
-  { path: "/rfq", component: RFQ },
-  { path: "/profile", component: Profile },
+  { path: "/", component: HomeView },
+
+  // B2B
+  { path: "/b2b/products", component: B2BProductsView },
+  { path: "/b2b/products/:id", component: B2BProductDetailView },
+  { path: "/b2b/rfq/create", component: B2BRFQCreateView },
+
+  // Other modules (şimdilik ayrık stub)
+  { path: "/b2c", component: B2CStub },
+  { path: "/c2c", component: C2CStub },
+  { path: "/services", component: ServicesStub },
+  { path: "/code", component: CodeStub },
+  { path: "/pod", component: PodStub },
+  { path: "/dropship", component: DropshipStub },
 ]
 
 export default createRouter({
