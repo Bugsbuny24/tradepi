@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 declare global {
   interface Window {
@@ -8,70 +8,81 @@ declare global {
   }
 }
 
+function isPiBrowserUA() {
+  if (typeof navigator === "undefined") return false;
+  return /PiBrowser/i.test(navigator.userAgent);
+}
+
 export default function Home() {
   const [log, setLog] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [auth, setAuth] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [piReady, setPiReady] = useState(false);
+
+  const isPiBrowser = useMemo(() => isPiBrowserUA(), []);
 
   const append = (s: string) => setLog((p) => (p ? `${p}\n${s}` : s));
 
-  // Pi SDK hazır mı? (Pi Browser bazen geç inject ediyor)
-  const waitForPi = async (ms = 5000) => {
-    const start = Date.now();
-    while (!window.Pi) {
-      if (Date.now() - start > ms) return false;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    return true;
-  };
-
   useEffect(() => {
-    // İstersen ilk açılışta init deneyelim (Pi hazırsa)
-    (async () => {
-      const ok = await waitForPi(1500);
-      if (ok) {
+    // Pi Browser değilse hiç zorlamayalım
+    if (!isPiBrowser) {
+      append("Bu sayfa Pi Browser içinde açılmalı.");
+      append("Chrome’da Pi SDK yüklenebilir ama authenticate/payments düzgün çalışmaz.");
+      return;
+    }
+
+    // Pi Browser ise SDK'yı bekleyip init edelim
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+      if (window.Pi) {
         try {
           window.Pi.init({ version: "2.0" });
+          setPiReady(true);
           append("Pi SDK ready ✅");
+          clearInterval(timer);
         } catch (e: any) {
-          append(`Pi init error: ${e?.message || String(e)}`);
+          append("Pi.init error: " + (e?.message || String(e)));
+          clearInterval(timer);
         }
-      } else {
-        append("Pi SDK bekleniyor… (Pi Browser’da aç)");
+      } else if (Date.now() - t0 > 8000) {
+        append("Pi SDK yüklenmedi (8s timeout). Pi Browser içinden açtığına emin ol.");
+        clearInterval(timer);
       }
-    })();
+    }, 200);
+
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getAuth = async () => {
-    if (auth) return auth;
-
-    const ok = await waitForPi(5000);
-    if (!ok) throw new Error("Pi SDK yok (Pi Browser içinde aç).");
-
-    // init güvenli: birden fazla kez çağrılsa da genelde sorun çıkarmaz
-    window.Pi.init({ version: "2.0" });
-
-    append("Authenticating (payments scope)...");
-    const scopes = ["payments", "username"];
-
-    const onIncompletePaymentFound = (payment: any) => {
-      append("Incomplete payment found (ignored for MVP).");
-      // İstersen burada server tarafında kontrol/temizleme yapılır.
-    };
-
-    const a = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
-    setAuth(a);
-    append(`Auth OK: user=${a?.user?.username || "??"}`);
-    return a;
-  };
-
   const verifyPayment = async () => {
-    if (busy) return; // çift tıklama kilidi
-    setBusy(true);
-
+    setLoading(true);
     try {
-      await getAuth();
+      if (!isPiBrowser) {
+        append("Pi Browser değil → authenticate başlatmıyorum.");
+        return;
+      }
+      if (!window.Pi) {
+        append("Pi SDK yok → script yüklenmemiş.");
+        return;
+      }
+
+      append("Authenticating (payments scope)...");
+
+      const scopes = ["payments"];
+
+      const onIncompletePaymentFound = (payment: any) => {
+        append("Incomplete payment found (ignored): " + JSON.stringify(payment));
+      };
+
+      // authenticate takılmasın diye timeout
+      const authPromise = window.Pi.authenticate(scopes, onIncompletePaymentFound);
+      const authResult = await Promise.race([
+        authPromise,
+        new Promise((_, rej) =>
+          setTimeout(() => rej(new Error("authenticate timeout (20s)")), 20000)
+        ),
+      ]);
+
+      append(`Auth OK: user=${authResult?.user?.username || "?"}`);
 
       const paymentData = {
         amount: 0.01,
@@ -87,8 +98,7 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId }),
           });
-          const txt = await r.text();
-          if (!r.ok) throw new Error(txt);
+          if (!r.ok) throw new Error(await r.text());
           append("Server approve OK ✅");
         },
 
@@ -99,14 +109,13 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId, txid }),
           });
-          const txt = await r.text();
-          if (!r.ok) throw new Error(txt);
+          if (!r.ok) throw new Error(await r.text());
           append("Server complete OK ✅");
         },
 
         onCancel: (paymentId: string) => append(`Cancelled: ${paymentId}`),
         onError: (err: any, payment: any) =>
-          append(`Error: ${JSON.stringify({ err, payment })}`),
+          append(`Error: ${JSON.stringify({ err: err?.message || err, payment })}`),
       };
 
       append("Creating payment...");
@@ -114,42 +123,40 @@ export default function Home() {
     } catch (e: any) {
       append(`FAIL: ${e?.message || String(e)}`);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
   return (
-    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 40, marginBottom: 16 }}>
+    <main style={{ padding: 24, fontFamily: "system-ui" }}>
+      <h1 style={{ fontSize: 44, marginBottom: 18 }}>
         TradePiGloball • Pi Payment Verification
       </h1>
 
       <button
         onClick={verifyPayment}
-        disabled={busy}
+        disabled={loading || !piReady || !isPiBrowser}
         style={{
           padding: "14px 18px",
-          borderRadius: 10,
+          borderRadius: 12,
           border: "1px solid #ddd",
-          fontSize: 16,
-          opacity: busy ? 0.6 : 1,
+          opacity: loading || !piReady || !isPiBrowser ? 0.5 : 1,
         }}
       >
-        {busy ? "Processing..." : "Verify Payment (0.01 Pi)"}
+        {loading ? "Processing..." : "Verify Payment (0.01 Pi)"}
       </button>
 
       <pre
         style={{
           marginTop: 20,
-          padding: 16,
-          borderRadius: 12,
-          background: "#f5f5f5",
+          background: "#f3f3f3",
+          padding: 18,
+          borderRadius: 14,
           whiteSpace: "pre-wrap",
-          minHeight: 120,
         }}
       >
-        {log || "Log burada..."}
+        {log || "—"}
       </pre>
     </main>
   );
-}
+            }
