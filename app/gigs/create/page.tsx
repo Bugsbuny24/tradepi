@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import SellerGate from "@/components/SellerGate";
 import { createClient } from "@supabase/supabase-js";
+import SellerGate from "@/components/SellerGate";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,230 +21,206 @@ type PackageForm = {
 export default function CreateGigPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState(""); // opsiyonel (gigs.category_id nullable)
-  const [status, setStatus] = useState<"draft" | "active">("draft");
+  const [basePrice, setBasePrice] = useState("");
 
-  // gigs tablosunda base_price / delivery_days / revisions var; MVP’de bunları Basic’ten türetiyoruz
   const [packages, setPackages] = useState<PackageForm[]>([
-    { tier: 1, title: "Basic", description: "", price: "10", delivery_days: "3", revisions: "1" },
-    { tier: 2, title: "Standard", description: "", price: "25", delivery_days: "5", revisions: "2" },
-    { tier: 3, title: "Premium", description: "", price: "50", delivery_days: "7", revisions: "3" },
+    { tier: 1, title: "", description: "", price: "", delivery_days: "3", revisions: "1" },
+    { tier: 2, title: "", description: "", price: "", delivery_days: "5", revisions: "2" },
+    { tier: 3, title: "", description: "", price: "", delivery_days: "7", revisions: "3" },
   ]);
 
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
 
-  const basic = useMemo(() => packages.find((p) => p.tier === 1)!, [packages]);
+  const canSave = useMemo(() => {
+    if (!title.trim()) return false;
+    if (!basePrice.trim()) return false;
+    // paketlerde en az 1 fiyat dolu olsun
+    const anyPkg = packages.some((p) => p.price.trim());
+    return anyPkg;
+  }, [title, basePrice, packages]);
 
-  const setPkg = (tier: 1 | 2 | 3, patch: Partial<PackageForm>) => {
-    setPackages((prev) => prev.map((p) => (p.tier === tier ? { ...p, ...patch } : p)));
-  };
-
-  const validate = () => {
-    if (!title.trim()) return "Gig başlığı boş olamaz.";
-    // numeric kontroller
-    for (const p of packages) {
-      if (!p.title.trim()) return `Paket başlığı boş olamaz (tier ${p.tier}).`;
-
-      const price = Number(p.price);
-      const dd = Number(p.delivery_days);
-      const rev = Number(p.revisions);
-
-      if (!Number.isFinite(price) || price <= 0) return `Fiyat hatalı (tier ${p.tier}).`;
-      if (!Number.isInteger(dd) || dd <= 0) return `Teslim günü hatalı (tier ${p.tier}).`;
-      if (!Number.isInteger(rev) || rev < 0) return `Revizyon hatalı (tier ${p.tier}).`;
-    }
-
-    // fiyat mantığı (Basic <= Standard <= Premium) – istersen kaldırırız
-    const p1 = Number(packages[0].price);
-    const p2 = Number(packages[1].price);
-    const p3 = Number(packages[2].price);
-    if (!(p1 <= p2 && p2 <= p3)) return "Fiyat sırası bozuk: Basic <= Standard <= Premium olmalı.";
-
-    return "";
+  const setPkg = (tier: 1 | 2 | 3, key: keyof PackageForm, val: string) => {
+    setPackages((prev) =>
+      prev.map((p) => (p.tier === tier ? { ...p, [key]: val } : p))
+    );
   };
 
   const onSubmit = async () => {
     setMsg("");
-    const err = validate();
-    if (err) return setMsg("❌ " + err);
+    setSaving(true);
 
-    setLoading(true);
     try {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData?.user?.id) throw new Error("Giriş yok. (Supabase auth session bulunamadı)");
-      const uid = userData.user.id;
+      const uid = userData?.user?.id;
+      if (userErr || !uid) throw new Error("Giriş yok.");
+
+      // seller profile'dan selected_category_id al
+      const { data: profile, error: pErr } = await supabase
+        .from("profiles")
+        .select("selected_category_id")
+        .eq("id", uid)
+        .single<{ selected_category_id: string | null }>();
+
+      if (pErr) throw new Error(pErr.message);
+      if (!profile?.selected_category_id) throw new Error("Kategori seçilmemiş.");
 
       // 1) gigs insert
-      const base_price = Number(basic.price);
-      const delivery_days = Number(basic.delivery_days);
-      const revisions = Number(basic.revisions);
-
-      const { data: gig, error: gigErr } = await supabase
+      const { data: gig, error: gErr } = await supabase
         .from("gigs")
         .insert({
           seller_id: uid,
-          category_id: categoryId ? categoryId : null,
+          category_id: profile.selected_category_id,
           title: title.trim(),
-          description: description.trim() ? description.trim() : null,
-          base_price,
-          delivery_days,
-          revisions,
-          status, // enum: gig_status (draft/active/paused/deleted)
+          description: description.trim() || null,
+          base_price: Number(basePrice),
+          status: "active",
+          delivery_days: 3,
+          revisions: 1,
         })
         .select("id")
-        .single();
+        .single<{ id: string }>();
 
-      if (gigErr) throw new Error(gigErr.message);
-      if (!gig?.id) throw new Error("Gig oluşturuldu ama id dönmedi.");
+      if (gErr) throw new Error(gErr.message);
+      if (!gig?.id) throw new Error("Gig oluşturulamadı.");
 
-      const gigId = gig.id as string;
+      // 2) gig_packages insert (dolu olanları bas)
+      const rows = packages
+        .filter((p) => p.price.trim())
+        .map((p) => ({
+          gig_id: gig.id,
+          tier: p.tier,
+          title: p.title.trim() || `Paket ${p.tier}`,
+          description: p.description.trim() || null,
+          price: Number(p.price),
+          delivery_days: Number(p.delivery_days || "3"),
+          revisions: Number(p.revisions || "1"),
+        }));
 
-      // 2) 3 package insert
-      const payload = packages.map((p) => ({
-        gig_id: gigId,
-        tier: p.tier,
-        title: p.title.trim(),
-        description: p.description.trim() ? p.description.trim() : null,
-        price: Number(p.price),
-        delivery_days: Number(p.delivery_days),
-        revisions: Number(p.revisions),
-      }));
+      if (rows.length) {
+        const { error: pkErr } = await supabase.from("gig_packages").insert(rows);
+        if (pkErr) throw new Error(pkErr.message);
+      }
 
-      const { error: pkgErr } = await supabase.from("gig_packages").insert(payload);
-      if (pkgErr) throw new Error(pkgErr.message);
-
-      setMsg("✅ Gig + 3 paket oluşturuldu! Seller Panel’e dönebilirsin.");
-      // istersen otomatik yönlendirme:
-      // window.location.href = "/seller/gigs";
+      setMsg("✅ Gig oluşturuldu!");
+      setTitle("");
+      setDescription("");
+      setBasePrice("");
     } catch (e: any) {
-      setMsg("❌ " + (e?.message ?? "Bir hata oldu."));
+      setMsg(e?.message ?? "Hata oluştu.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
     <SellerGate>
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: 16 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 900 }}>Gig Oluştur (3 Paket)</h1>
-        <p style={{ opacity: 0.75, marginTop: 6 }}>
-          Basic / Standard / Premium paketlerini gir, kaydedelim.
-        </p>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 900 }}>Gig Oluştur</h1>
 
-        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-          <label style={labelStyle}>Gig Başlığı</label>
-          <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn: Logo tasarımı yaparım" />
-
-          <label style={labelStyle}>Açıklama (opsiyonel)</label>
-          <textarea style={{ ...inputStyle, minHeight: 90 }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Kısa açıklama..." />
-
-          <label style={labelStyle}>Kategori ID (opsiyonel)</label>
-          <input style={inputStyle} value={categoryId} onChange={(e) => setCategoryId(e.target.value)} placeholder="uuid (boş bırakabilirsin)" />
-
-          <label style={labelStyle}>Durum</label>
-          <select style={inputStyle as any} value={status} onChange={(e) => setStatus(e.target.value as any)}>
-            <option value="draft">draft (taslak)</option>
-            <option value="active">active (yayında)</option>
-          </select>
+        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Gig başlığı"
+            style={{ padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          />
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Açıklama"
+            rows={4}
+            style={{ padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          />
+          <input
+            value={basePrice}
+            onChange={(e) => setBasePrice(e.target.value)}
+            placeholder="Base price (numeric)"
+            inputMode="decimal"
+            style={{ padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          />
         </div>
 
-        <h2 style={{ fontSize: 22, fontWeight: 900, marginTop: 22 }}>Paketler</h2>
+        <h2 style={{ marginTop: 18, fontSize: 18, fontWeight: 900 }}>Paketler (3 tier)</h2>
 
-        <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
-          <PkgCard
-            name="Basic"
-            p={packages[0]}
-            set={(patch) => setPkg(1, patch)}
-          />
-          <PkgCard
-            name="Standard"
-            p={packages[1]}
-            set={(patch) => setPkg(2, patch)}
-          />
-          <PkgCard
-            name="Premium"
-            p={packages[2]}
-            set={(patch) => setPkg(3, patch)}
-          />
+        <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
+          {packages.map((p) => (
+            <div key={p.tier} style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Tier {p.tier}</div>
+
+              <input
+                value={p.title}
+                onChange={(e) => setPkg(p.tier, "title", e.target.value)}
+                placeholder={`Tier ${p.tier} başlık`}
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+              />
+
+              <textarea
+                value={p.description}
+                onChange={(e) => setPkg(p.tier, "description", e.target.value)}
+                placeholder="Açıklama"
+                rows={3}
+                style={{
+                  width: "100%",
+                  marginTop: 8,
+                  padding: 10,
+                  borderRadius: 10,
+                  border: "1px solid #ddd",
+                }}
+              />
+
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <input
+                  value={p.price}
+                  onChange={(e) => setPkg(p.tier, "price", e.target.value)}
+                  placeholder="Price"
+                  inputMode="decimal"
+                  style={{ flex: 1, padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+                />
+                <input
+                  value={p.delivery_days}
+                  onChange={(e) => setPkg(p.tier, "delivery_days", e.target.value)}
+                  placeholder="Delivery days"
+                  inputMode="numeric"
+                  style={{ width: 140, padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+                />
+                <input
+                  value={p.revisions}
+                  onChange={(e) => setPkg(p.tier, "revisions", e.target.value)}
+                  placeholder="Revisions"
+                  inputMode="numeric"
+                  style={{ width: 120, padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+                />
+              </div>
+
+              <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+                Not: price boşsa bu tier insert edilmez.
+              </div>
+            </div>
+          ))}
         </div>
 
         <button
+          disabled={saving || !canSave}
           onClick={onSubmit}
-          disabled={loading}
           style={{
-            marginTop: 18,
+            marginTop: 16,
             width: "100%",
-            padding: 14,
-            borderRadius: 16,
-            border: "2px solid #111",
+            padding: 12,
+            borderRadius: 12,
             fontWeight: 900,
-            cursor: "pointer",
+            cursor: saving || !canSave ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "Kaydediliyor..." : "Gig + 3 Paket Kaydet"}
+          {saving ? "Kaydediliyor..." : "Kaydet"}
         </button>
 
         {msg ? (
-          <div style={{ marginTop: 12, padding: 10, borderRadius: 12, background: "#f7f7f7" }}>
+          <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#f7f7f7" }}>
             {msg}
           </div>
         ) : null}
-
-        <div style={{ marginTop: 16 }}>
-          <a href="/seller" style={{ fontWeight: 900, textDecoration: "none" }}>
-            ← Seller Panel
-          </a>
-        </div>
       </div>
     </SellerGate>
   );
 }
-
-function PkgCard({
-  name,
-  p,
-  set,
-}: {
-  name: string;
-  p: PackageForm;
-  set: (patch: Partial<PackageForm>) => void;
-}) {
-  return (
-    <div style={{ border: "2px solid #111", borderRadius: 16, padding: 14 }}>
-      <div style={{ fontSize: 18, fontWeight: 900 }}>{name}</div>
-
-      <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-        <label style={labelStyle}>Paket Başlığı</label>
-        <input style={inputStyle} value={p.title} onChange={(e) => set({ title: e.target.value })} />
-
-        <label style={labelStyle}>Paket Açıklama (opsiyonel)</label>
-        <textarea style={{ ...inputStyle, minHeight: 70 }} value={p.description} onChange={(e) => set({ description: e.target.value })} />
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          <div>
-            <label style={labelStyle}>Fiyat</label>
-            <input style={inputStyle} value={p.price} onChange={(e) => set({ price: e.target.value })} />
-          </div>
-          <div>
-            <label style={labelStyle}>Teslim (gün)</label>
-            <input style={inputStyle} value={p.delivery_days} onChange={(e) => set({ delivery_days: e.target.value })} />
-          </div>
-          <div>
-            <label style={labelStyle}>Revizyon</label>
-            <input style={inputStyle} value={p.revisions} onChange={(e) => set({ revisions: e.target.value })} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const labelStyle: React.CSSProperties = { fontWeight: 800, fontSize: 13, opacity: 0.8 };
-const inputStyle: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid #ddd",
-  width: "100%",
-  fontWeight: 700,
-};
