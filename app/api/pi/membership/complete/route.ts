@@ -1,84 +1,70 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { piGetPayment } from "@/lib/piVerify";
 
 export async function POST(req: Request) {
   try {
-    const { paymentId, txid } = await req.json();
-    if (!paymentId || !txid) {
-      return NextResponse.json({ error: "paymentId and txid required" }, { status: 400 });
-    }
+    const { payment_id } = await req.json();
+    if (!payment_id) return NextResponse.json({ error: "payment_id required" }, { status: 400 });
 
-    const apiKey = process.env.PI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "PI_API_KEY missing" }, { status: 500 });
+    const piPayment = await piGetPayment(payment_id);
 
-    // Pi complete
-    const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${apiKey}`,
-      },
-      body: JSON.stringify({ txid }),
-    });
+    // piPayment içinden txid / amount / user vb alanlar Pi API formatına göre değişebilir.
+    // Bu yüzden güvenli çekelim:
+    const txid = piPayment?.transaction?.txid ?? piPayment?.txid ?? null;
 
-    const resultText = await r.text();
-    if (!r.ok) {
-      return new NextResponse(resultText, { status: 400 });
-    }
-
-    // DB'den payment'ı çek (user_id lazım)
-    const { data: payRow, error: payErr } = await supabaseAdmin
+    // DB’den payment kaydını çek
+    const row = await supabaseAdmin
       .from("pi_payments")
-      .select("user_id, amount, purpose")
-      .eq("payment_id", paymentId)
+      .select("id,user_id,purpose,amount,status")
+      .eq("payment_id", payment_id)
       .single();
 
-    if (payErr || !payRow?.user_id) {
-      return NextResponse.json({ error: "payment not found in db", details: payErr?.message }, { status: 404 });
-    }
+    if (row.error || !row.data) throw new Error("payment record not found");
 
-    // pi_payments güncelle
-    const { error: upErr } = await supabaseAdmin
+    const { user_id, purpose } = row.data;
+    if (!user_id) throw new Error("payment has no user_id");
+
+    // pi_payments completed + txid
+    const up = await supabaseAdmin
       .from("pi_payments")
       .update({
         status: "completed",
         txid,
-        raw: { complete_response: resultText }
+        raw: piPayment,
       })
-      .eq("payment_id", paymentId);
+      .eq("payment_id", payment_id);
 
-    if (upErr) {
-      return NextResponse.json({ error: "db update failed", details: upErr.message }, { status: 500 });
+    if (up.error) throw new Error(up.error.message);
+
+    // profiles update: plan’a göre
+    if (purpose === "buyer_activation") {
+      const p = await supabaseAdmin.from("profiles").update({
+        is_member: true,
+        membership_plan: "buyer_activation",
+        membership_started_at: new Date().toISOString(),
+        membership_expires_at: null,
+      }).eq("id", user_id);
+      if (p.error) throw new Error(p.error.message);
     }
 
-    // Üyelik aç (1 yıl)
-    const now = new Date();
-    const expires = new Date(now);
-    expires.setFullYear(expires.getFullYear() + 1);
+    if (purpose === "seller_yearly") {
+      const now = new Date();
+      const expires = new Date(now);
+      expires.setFullYear(now.getFullYear() + 1);
 
-    const { error: profErr } = await supabaseAdmin
-      .from("profiles")
-      .update({
+      const p = await supabaseAdmin.from("profiles").update({
         is_member: true,
+        is_seller: true,
+        membership_plan: "seller_yearly",
         membership_started_at: now.toISOString(),
         membership_expires_at: expires.toISOString(),
-      })
-      .eq("id", payRow.user_id);
-
-    if (profErr) {
-      return NextResponse.json({ error: "profile update failed", details: profErr.message }, { status: 500 });
+      }).eq("id", user_id);
+      if (p.error) throw new Error(p.error.message);
     }
 
-    return NextResponse.json({
-      ok: true,
-      paymentId,
-      txid,
-      membership: {
-        started_at: now.toISOString(),
-        expires_at: expires.toISOString(),
-      }
-    });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "unknown error" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "complete failed" }, { status: 500 });
   }
 }
