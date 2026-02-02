@@ -22,14 +22,22 @@ export default function CategoryChildrenPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const isLeaf = useMemo(() => !loading && children.length === 0, [loading, children]);
+  const isLeaf = useMemo(
+    () => !loading && children.length === 0,
+    [loading, children]
+  );
 
   useEffect(() => {
     (async () => {
       setMsg("");
       setLoading(true);
 
-      const p = await supabase.from("categories").select("id,name,parent_id").eq("id", parentId).single();
+      const p = await supabase
+        .from("categories")
+        .select("id,name,parent_id")
+        .eq("id", parentId)
+        .single();
+
       if (!p.error) setParent(p.data);
 
       const ch = await supabase
@@ -46,10 +54,13 @@ export default function CategoryChildrenPage() {
   const chooseThisCategory = async (categoryId: string) => {
     setMsg("");
     setSaving(true);
+
     try {
-      // Kullanıcının supabase auth oturumu olmalı (auth.uid() ile profiles update edilir)
+      // Kullanıcının supabase auth oturumu olmalı
       const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData?.user?.id) throw new Error("Giriş yok. (Supabase auth session bulunamadı)");
+      if (userErr || !userData?.user?.id) {
+        throw new Error("Giriş yok. (Supabase auth session bulunamadı)");
+      }
 
       const uid = userData.user.id;
 
@@ -67,6 +78,7 @@ export default function CategoryChildrenPage() {
     } finally {
       setSaving(false);
     }
+  };
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
@@ -75,7 +87,7 @@ export default function CategoryChildrenPage() {
       </button>
 
       <h1 style={{ fontSize: 22, fontWeight: 900 }}>
-        {parent ? parent.name : "Kategori"}{" "}
+        {parent ? parent.name : "Kategori"}
       </h1>
 
       {loading ? <div style={{ marginTop: 16 }}>Yükleniyor...</div> : null}
@@ -83,6 +95,7 @@ export default function CategoryChildrenPage() {
       {!loading && children.length > 0 ? (
         <>
           <p style={{ opacity: 0.8, marginTop: 8 }}>Alt kategori seç:</p>
+
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
             {children.map((c) => (
               <button
@@ -105,6 +118,7 @@ export default function CategoryChildrenPage() {
           <div style={{ marginTop: 18, opacity: 0.8 }}>
             Bu ana kategoriyi direkt seçmek istersen:
           </div>
+
           <button
             disabled={saving}
             onClick={() => chooseThisCategory(parentId)}
@@ -127,6 +141,7 @@ export default function CategoryChildrenPage() {
           <p style={{ opacity: 0.8, marginTop: 10 }}>
             Bu kategorinin altında alt kategori yok. Direkt bunu seçebilirsin.
           </p>
+
           <button
             disabled={saving}
             onClick={() => chooseThisCategory(parentId)}
@@ -145,6 +160,17 @@ export default function CategoryChildrenPage() {
       ) : null}
 
       {msg ? (
-        <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#f7f7f7" }}>
+        <div
+          style={{
+            marginTop: 12,
+            padding: 10,
+            borderRadius: 10,
+            background: "#f7f7f7",
+          }}
+        >
           {msg}
         </div>
+      ) : null}
+    </div>
+  );
+}
