@@ -20,13 +20,12 @@ export default function Home() {
         return;
       }
 
-      // Bazı örneklerde init gerekli olabiliyor:
       window.Pi.init?.({ version: "2.0" });
 
       const paymentData = {
         amount: 0.01,
         memo: "TradePiGloball verification payment",
-        metadata: { purpose: "checklist_step_10" },
+        metadata: { purpose: "checklist_step_10" }
       };
 
       const callbacks = {
@@ -35,7 +34,7 @@ export default function Home() {
           const r = await fetch("/api/pi/approve", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId }),
+            body: JSON.stringify({ paymentId })
           });
           if (!r.ok) throw new Error(await r.text());
           append("Server approve OK");
@@ -46,7 +45,7 @@ export default function Home() {
           const r = await fetch("/api/pi/complete", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId, txid }),
+            body: JSON.stringify({ paymentId, txid })
           });
           if (!r.ok) throw new Error(await r.text());
           append("Server complete OK ✅");
@@ -54,7 +53,7 @@ export default function Home() {
 
         onCancel: (paymentId: string) => append(`Cancelled: ${paymentId}`),
         onError: (err: any, payment: any) =>
-          append(`Error: ${JSON.stringify({ err, payment })}`),
+          append(`Error: ${JSON.stringify({ err, payment })}`)
       };
 
       append("Creating payment...");
@@ -66,7 +65,7 @@ export default function Home() {
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1>TradePiGloball • Pi Checklist Payment</h1>
+      <h1>TradePiGloball • Pi Payment Verification</h1>
 
       <button
         onClick={verifyPayment}
@@ -74,7 +73,7 @@ export default function Home() {
           padding: "12px 16px",
           borderRadius: 10,
           border: "1px solid #ccc",
-          cursor: "pointer",
+          cursor: "pointer"
         }}
       >
         Verify Payment (0.01 Pi)
@@ -86,7 +85,7 @@ export default function Home() {
           padding: 12,
           background: "#f6f6f6",
           borderRadius: 10,
-          whiteSpace: "pre-wrap",
+          whiteSpace: "pre-wrap"
         }}
       >
         {log || "Log burada..."}
