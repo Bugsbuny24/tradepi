@@ -1,4 +1,5 @@
 // lib/piApi.ts
+
 type PiCreatePaymentBody = {
   amount: number;
   memo: string;
@@ -6,13 +7,40 @@ type PiCreatePaymentBody = {
   purpose: string;
 };
 
-export async function piCreatePayment(body: PiCreatePaymentBody) {
-  const PI_API_KEY = process.env.PI_API_KEY!;
+type NormalizedPiPayment = {
+  payment_id: string;
+  status: string;
+  raw: any;
+};
+
+const PI_BASE = "https://api.minepi.com/v2/payments";
+
+function normalizePiPayment(data: any): NormalizedPiPayment {
+  const payment_id =
+    data.paymentId ??
+    data.identifier ??
+    data.id ??
+    data?.payment?.identifier ??
+    null;
+
+  if (!payment_id) {
+    throw new Error("PI_PAYMENT_ID_NOT_FOUND");
+  }
+
+  return {
+    payment_id,
+    status: data.status ?? data?.payment?.status ?? "unknown",
+    raw: data,
+  };
+}
+
+export async function piCreatePayment(
+  body: PiCreatePaymentBody
+): Promise<NormalizedPiPayment> {
+  const PI_API_KEY = process.env.PI_API_KEY;
   if (!PI_API_KEY) throw new Error("Missing PI_API_KEY");
 
-  // TODO: Pi gerçek endpointine uyarlayacaksın.
-  // Aşağıdaki URL örnektir.
-  const res = await fetch("https://api.minepi.com/v2/payments", {
+  const res = await fetch(PI_BASE, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -21,21 +49,36 @@ export async function piCreatePayment(body: PiCreatePaymentBody) {
     body: JSON.stringify(body),
   });
 
+  const data = await res.json();
+
   if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Pi create failed: ${res.status} ${t}`);
+    throw new Error(
+      `Pi create failed: ${res.status} ${JSON.stringify(data)}`
+    );
   }
-  return res.json(); // { paymentId, ... }
+
+  return normalizePiPayment(data);
 }
 
-export async function piGetPayment(paymentId: string) {
-  const PI_API_KEY = process.env.PI_API_KEY!;
-  const res = await fetch(`https://api.minepi.com/v2/payments/${paymentId}`, {
-    headers: { Authorization: `Key ${PI_API_KEY}` },
+export async function piGetPayment(
+  payment_id: string
+): Promise<NormalizedPiPayment> {
+  const PI_API_KEY = process.env.PI_API_KEY;
+  if (!PI_API_KEY) throw new Error("Missing PI_API_KEY");
+
+  const res = await fetch(`${PI_BASE}/${payment_id}`, {
+    headers: {
+      Authorization: `Key ${PI_API_KEY}`,
+    },
   });
+
+  const data = await res.json();
+
   if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Pi get failed: ${res.status} ${t}`);
+    throw new Error(
+      `Pi get failed: ${res.status} ${JSON.stringify(data)}`
+    );
   }
-  return res.json();
+
+  return normalizePiPayment(data);
 }
