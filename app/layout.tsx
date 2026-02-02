@@ -5,11 +5,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="tr">
       <body>
         {children}
-
-        <Script
-          src="https://sdk.minepi.com/pi-sdk.js"
-          strategy="afterInteractive"
-        />
+        <Script src="https://sdk.minepi.com/pi-sdk.js" strategy="afterInteractive" />
       </body>
     </html>
   );
