@@ -2,99 +2,80 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Profile = {
-  id: string;
-  is_seller: boolean;
-  is_member: boolean;
-  membership_expires_at: string | null;
-  selected_category_id: string | null;
-};
-
 export default function SellerGate({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [ok, setOk] = useState(false);
-  const [reason, setReason] = useState<string>("");
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     (async () => {
-      try {
-        setLoading(true);
-        setReason("");
+      setLoading(true);
 
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr || !userData?.user?.id) {
-          setOk(false);
-          setReason("Giriş yapmalısın.");
-          return;
-        }
+      const { data, error } = await supabase.auth.getUser();
+      const uid = data?.user?.id;
 
-        const uid = userData.user.id;
-
-        const { data: p, error: pErr } = await supabase
-          .from("profiles")
-          .select("id,is_seller,is_member,membership_expires_at,selected_category_id")
-          .eq("id", uid)
-          .single();
-
-        if (pErr || !p) {
-          setOk(false);
-          setReason("Profil bulunamadı.");
-          return;
-        }
-
-        const profile = p as Profile;
-
-        // üyelik süresi kontrolü (expires_at varsa ve geçmişse member false say)
-        const expired =
-          profile.membership_expires_at &&
-          new Date(profile.membership_expires_at).getTime() < Date.now();
-
-        const isMemberActive = profile.is_member && !expired;
-
-        if (!profile.is_seller) {
-          setOk(false);
-          setReason("Satıcı modunu açmalısın.");
-          return;
-        }
-
-        if (!isMemberActive) {
-          setOk(false);
-          setReason("Satıcı paneli için üyelik gerekiyor.");
-          return;
-        }
-
-        if (!profile.selected_category_id) {
-          setOk(false);
-          setReason("Kategori seçmelisin.");
-          return;
-        }
-
-        setOk(true);
-      } finally {
+      if (error || !uid) {
+        setMsg("Giriş yok. Lütfen giriş yap.");
         setLoading(false);
+        setOk(false);
+        return;
       }
+
+      // profile kontrol
+      const { data: profile, error: pErr } = await supabase
+        .from("profiles")
+        .select("is_seller,is_member,selected_category_id")
+        .eq("id", uid)
+        .single();
+
+      if (pErr || !profile) {
+        setMsg("Profil bulunamadı.");
+        setLoading(false);
+        setOk(false);
+        return;
+      }
+
+      // MVP şartları: satıcı + üyelik + kategori
+      const pass =
+        !!profile.is_seller && !!profile.is_member && !!profile.selected_category_id;
+
+      if (!pass) {
+        setMsg("Satıcı paneli için: Satıcı + Üyelik + Kategori seçimi gerekli.");
+        setOk(false);
+      } else {
+        setOk(true);
+      }
+
+      setLoading(false);
     })();
   }, []);
 
-  if (loading) return <div style={{ padding: 16 }}>Yükleniyor...</div>;
+  if (loading) return <div style={{ padding: 16 }}>Kontrol ediliyor...</div>;
 
   if (!ok) {
     return (
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 900 }}>Seller Panel</h1>
-        <p style={{ opacity: 0.8, marginTop: 10 }}>{reason}</p>
+      <div style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900 }}>Seller Panel</h1>
+        <p style={{ marginTop: 8, opacity: 0.85 }}>{msg}</p>
 
-        <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
-          <a href="/seller/apply" style={btnStyle}>Satıcı Ol</a>
-          <a href="/membership" style={btnStyle}>Üyelik</a>
-          <a href="/categories" style={btnStyle}>Kategori Seç</a>
-          <a href="/" style={btnStyle}>Ana Sayfa</a>
+        <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+          <button onClick={() => router.push("/apply")} style={{ padding: 10, borderRadius: 10 }}>
+            Satıcı Ol
+          </button>
+          <button onClick={() => router.push("/membership")} style={{ padding: 10, borderRadius: 10 }}>
+            Üyelik
+          </button>
+          <button onClick={() => router.push("/categories")} style={{ padding: 10, borderRadius: 10 }}>
+            Kategori Seç
+          </button>
         </div>
       </div>
     );
@@ -102,13 +83,3 @@ export default function SellerGate({ children }: { children: React.ReactNode }) 
 
   return <>{children}</>;
 }
-
-const btnStyle: React.CSSProperties = {
-  display: "block",
-  padding: 14,
-  border: "2px solid #111",
-  borderRadius: 14,
-  fontWeight: 900,
-  textDecoration: "none",
-  textAlign: "center",
-};
