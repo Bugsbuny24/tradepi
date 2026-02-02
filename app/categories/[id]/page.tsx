@@ -67,7 +67,6 @@ export default function CategoryChildrenPage() {
     } finally {
       setSaving(false);
     }
-  };
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
