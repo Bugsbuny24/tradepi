@@ -1,26 +1,27 @@
+// app/api/me/membership/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAuthedUserId } from "@/lib/getAuthedUserId";
 
-export async function POST(req: Request) {
-  const { userId } = await req.json(); // Supabase user uuid bekliyoruz
+export async function GET(req: Request) {
+  const userId = await getAuthedUserId(req);
+  if (!userId) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
 
-  if (!userId) return NextResponse.json({ ok: false, error: "userId missing" }, { status: 400 });
+  const admin = supabaseAdmin(); // 🔴 KRİTİK SATIR
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await admin
     .from("profiles")
-    .select("membership_expires_at, selected_category_id")
+    .select(
+      "is_member, is_seller, membership_plan, membership_started_at, membership_expires_at"
+    )
     .eq("id", userId)
     .single();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
 
-  const expires = data?.membership_expires_at ? new Date(data.membership_expires_at).getTime() : 0;
-  const isMember = expires > Date.now();
-
-  return NextResponse.json({
-    ok: true,
-    isMember,
-    expires_at: data.membership_expires_at,
-    selected_category_id: data.selected_category_id,
-  });
+  return NextResponse.json({ ok: true, membership: data });
 }
