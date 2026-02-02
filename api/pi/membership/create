@@ -1,9 +1,0 @@
-const { data: prof } = await supabaseAdmin
-  .from("profiles")
-  .select("is_seller")
-  .eq("id", userId)
-  .single();
-
-if (!prof?.is_seller) {
-  return NextResponse.json({ error: "only_sellers_can_buy_membership" }, { status: 403 });
-}
