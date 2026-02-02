@@ -82,3 +82,54 @@ export async function piGetPayment(
 
   return normalizePiPayment(data);
 }
+export async function piApprovePayment(
+  payment_id: string
+): Promise<NormalizedPiPayment> {
+  const PI_API_KEY = process.env.PI_API_KEY;
+  if (!PI_API_KEY) throw new Error("Missing PI_API_KEY");
+
+  const res = await fetch(`${PI_BASE}/${payment_id}/approve`, {
+    method: "POST",
+    headers: {
+      Authorization: `Key ${PI_API_KEY}`,
+    },
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      `Pi approve failed: ${res.status} ${JSON.stringify(data)}`
+    );
+  }
+
+  return normalizePiPayment(data);
+}
+
+export async function piCompletePayment(
+  payment_id: string,
+  txid?: string
+): Promise<NormalizedPiPayment> {
+  const PI_API_KEY = process.env.PI_API_KEY;
+  if (!PI_API_KEY) throw new Error("Missing PI_API_KEY");
+
+  const res = await fetch(`${PI_BASE}/${payment_id}/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Key ${PI_API_KEY}`,
+    },
+    // bazı ortamlarda txid gerekebilir; yoksa boş gönder
+    body: JSON.stringify(txid ? { txid } : {}),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      `Pi complete failed: ${res.status} ${JSON.stringify(data)}`
+    );
+  }
+
+  return normalizePiPayment(data);
+}
