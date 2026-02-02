@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 declare global {
   interface Window {
@@ -10,30 +10,69 @@ declare global {
 
 export default function Home() {
   const [log, setLog] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [auth, setAuth] = useState<any>(null);
 
   const append = (s: string) => setLog((p) => (p ? `${p}\n${s}` : s));
 
-  const verifyPayment = async () => {
-    try {
-      if (!window.Pi) {
-        append("Pi SDK yok. Pi Browser içinde aç.");
-        return;
+  // Pi SDK hazır mı? (Pi Browser bazen geç inject ediyor)
+  const waitForPi = async (ms = 5000) => {
+    const start = Date.now();
+    while (!window.Pi) {
+      if (Date.now() - start > ms) return false;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    // İstersen ilk açılışta init deneyelim (Pi hazırsa)
+    (async () => {
+      const ok = await waitForPi(1500);
+      if (ok) {
+        try {
+          window.Pi.init({ version: "2.0" });
+          append("Pi SDK ready ✅");
+        } catch (e: any) {
+          append(`Pi init error: ${e?.message || String(e)}`);
+        }
+      } else {
+        append("Pi SDK bekleniyor… (Pi Browser’da aç)");
       }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      window.Pi.init?.({ version: "2.0" });
+  const getAuth = async () => {
+    if (auth) return auth;
 
-      // ✅ 1) Önce authenticate (payments scope şart)
-      append("Authenticating (payments scope)...");
-      const scopes = ["payments", "username"]; // username opsiyonel ama iyi
-      const onIncompletePaymentFound = (payment: any) => {
-        append("Incomplete payment found (ignored for MVP).");
-        // İstersen burada incomplete payment handle edersin
-      };
+    const ok = await waitForPi(5000);
+    if (!ok) throw new Error("Pi SDK yok (Pi Browser içinde aç).");
 
-      const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
-      append(`Auth OK: user=${authResult?.user?.username || "?"}`);
+    // init güvenli: birden fazla kez çağrılsa da genelde sorun çıkarmaz
+    window.Pi.init({ version: "2.0" });
 
-      // ✅ 2) Sonra payment create
+    append("Authenticating (payments scope)...");
+    const scopes = ["payments", "username"];
+
+    const onIncompletePaymentFound = (payment: any) => {
+      append("Incomplete payment found (ignored for MVP).");
+      // İstersen burada server tarafında kontrol/temizleme yapılır.
+    };
+
+    const a = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+    setAuth(a);
+    append(`Auth OK: user=${a?.user?.username || "??"}`);
+    return a;
+  };
+
+  const verifyPayment = async () => {
+    if (busy) return; // çift tıklama kilidi
+    setBusy(true);
+
+    try {
+      await getAuth();
+
       const paymentData = {
         amount: 0.01,
         memo: "TradePiGloball verification payment",
@@ -48,8 +87,9 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId }),
           });
-          if (!r.ok) throw new Error(await r.text());
-          append("Server approve OK");
+          const txt = await r.text();
+          if (!r.ok) throw new Error(txt);
+          append("Server approve OK ✅");
         },
 
         onReadyForServerCompletion: async (paymentId: string, txid: string) => {
@@ -59,7 +99,8 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId, txid }),
           });
-          if (!r.ok) throw new Error(await r.text());
+          const txt = await r.text();
+          if (!r.ok) throw new Error(txt);
           append("Server complete OK ✅");
         },
 
@@ -72,32 +113,39 @@ export default function Home() {
       await window.Pi.createPayment(paymentData, callbacks);
     } catch (e: any) {
       append(`FAIL: ${e?.message || String(e)}`);
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1>TradePiGloball • Pi Payment Verification</h1>
+    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 40, marginBottom: 16 }}>
+        TradePiGloball • Pi Payment Verification
+      </h1>
 
       <button
         onClick={verifyPayment}
+        disabled={busy}
         style={{
-          padding: "12px 16px",
+          padding: "14px 18px",
           borderRadius: 10,
-          border: "1px solid #ccc",
-          cursor: "pointer",
+          border: "1px solid #ddd",
+          fontSize: 16,
+          opacity: busy ? 0.6 : 1,
         }}
       >
-        Verify Payment (0.01 Pi)
+        {busy ? "Processing..." : "Verify Payment (0.01 Pi)"}
       </button>
 
       <pre
         style={{
-          marginTop: 16,
-          padding: 12,
-          background: "#f6f6f6",
-          borderRadius: 10,
+          marginTop: 20,
+          padding: 16,
+          borderRadius: 12,
+          background: "#f5f5f5",
           whiteSpace: "pre-wrap",
+          minHeight: 120,
         }}
       >
         {log || "Log burada..."}
