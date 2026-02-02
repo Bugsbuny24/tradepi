@@ -1,72 +1,52 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const MEMBERSHIP_AMOUNT = 100; // yıllık 100 Pi
-
+// POST body: { user_id, plan }  plan: "buyer_first" | "seller_yearly"
 export async function POST(req: Request) {
   try {
-    const { userId, plan } = await req.json(); // plan: "yearly" (şimdilik)
-    if (!userId) {
-      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    const { user_id, plan } = await req.json();
+
+    if (!user_id) return NextResponse.json({ error: "user_id required" }, { status: 400 });
+    if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
+
+    // buyer tek sefer kuralı: zaten member ise tekrar oluşturma
+    if (plan === "buyer_first") {
+      const prof = await supabaseAdmin.from("profiles").select("is_member,membership_plan").eq("id", user_id).single();
+      if (prof.data?.is_member && prof.data?.membership_plan === "buyer_activation") {
+        return NextResponse.json({ ok: true, already: true });
+      }
     }
 
-    const apiKey = process.env.PI_API_KEY;
-    const appBaseUrl = process.env.APP_BASE_URL; // örn: https://tradepigloball.co
-    if (!apiKey) return NextResponse.json({ error: "PI_API_KEY missing" }, { status: 500 });
-    if (!appBaseUrl) return NextResponse.json({ error: "APP_BASE_URL missing" }, { status: 500 });
+    const amount =
+      plan === "buyer_first" ? 0.1 :
+      plan === "seller_yearly" ? 100 :
+      null;
 
-    const amount = MEMBERSHIP_AMOUNT;
-    const purpose = "membership_yearly";
+    if (amount === null) return NextResponse.json({ error: "invalid plan" }, { status: 400 });
 
-    // Pi "create payment"
-    const r = await fetch("https://api.minepi.com/v2/payments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${apiKey}`,
-      },
-      body: JSON.stringify({
-        amount,
-        memo: "TradePiGloball yearly membership",
-        metadata: { purpose, userId, plan: plan ?? "yearly" },
-      }),
-    });
+    const purpose =
+      plan === "buyer_first" ? "buyer_activation" :
+      "seller_yearly";
 
-    const data = await r.json();
-    if (!r.ok) {
-      return NextResponse.json({ error: "pi create failed", details: data }, { status: 400 });
-    }
+    // payment_id’yi Pi SDK front üretip gönderiyor varsayımı
+    // Eğer sen backend’de create edeceksen, onu da ekleriz.
+    const payment_id = crypto.randomUUID(); // MVP placeholder
 
-    const paymentId = data?.identifier;
-    if (!paymentId) {
-      return NextResponse.json({ error: "Pi did not return payment identifier", details: data }, { status: 400 });
-    }
-
-    // DB’ye yaz (txid henüz yok => '' basıyoruz)
-    const { error: dbErr } = await supabaseAdmin.from("pi_payments").insert({
-      payment_id: paymentId,
-      txid: "",
-      user_id: userId,
+    const { error } = await supabaseAdmin.from("pi_payments").insert({
+      payment_id,
+      txid: null,
+      user_id,
       purpose,
-      order_id: null,
       amount,
       status: "created",
-      memo: "TradePiGloball yearly membership",
-      raw: data
+      raw: { plan },
     });
 
-    if (dbErr) {
-      return NextResponse.json({ error: "db insert failed", details: dbErr.message }, { status: 500 });
-    }
+    if (error) throw new Error(error.message);
 
-    // Frontend Pi SDK'ya bu paymentId'yi verecek.
-    return NextResponse.json({
-      paymentId,
-      amount,
-      purpose,
-      callbackUrl: `${appBaseUrl}/` // istersen özel callback sayfası yaparız
-    });
+    // frontend Pi SDK'ya bunu verip payment başlatır
+    return NextResponse.json({ ok: true, payment_id, amount, purpose });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "unknown error" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "create failed" }, { status: 500 });
   }
 }
