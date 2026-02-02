@@ -1,15 +1,7 @@
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  let body: any = {};
-  try {
-    body = await req.json();
-  } catch {}
-
-  const paymentId = body?.paymentId;
-  const txid = body?.txid;
+  const { paymentId, txid } = await req.json();
 
   if (!paymentId || !txid) {
     return NextResponse.json(
@@ -23,16 +15,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "PI_API_KEY missing" }, { status: 500 });
   }
 
-  const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Key ${apiKey}`,
-    },
-    body: JSON.stringify({ txid }),
-  });
+  const r = await fetch(
+    `https://api.minepi.com/v2/payments/${paymentId}/complete`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Key ${apiKey}`,
+      },
+      body: JSON.stringify({ txid }),
+    }
+  );
 
   const text = await r.text();
+
+  // /complete OK dönmeden "paid" sayma
   if (!r.ok) return new NextResponse(text, { status: 400 });
 
   return new NextResponse(text, { status: 200 });
