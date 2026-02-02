@@ -1,15 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
- 
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.tradepigloball.co" }],
-        destination: "https://tradepigloball.co/:path*",
-        permanent: true,
-      },
-    ];
-  },
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;
