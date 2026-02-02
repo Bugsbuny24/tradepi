@@ -1,52 +1,38 @@
+// app/api/pi/membership/create/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAuthedUserId } from "@/lib/getAuthedUserId";
+import { piCreatePayment } from "@/lib/piApi";
 
-// POST body: { user_id, plan }  plan: "buyer_first" | "seller_yearly"
 export async function POST(req: Request) {
-  try {
-    const { user_id, plan } = await req.json();
+  const uid = await getAuthedUserId(req);
+  if (!uid) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-    if (!user_id) return NextResponse.json({ error: "user_id required" }, { status: 400 });
-    if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
+  const admin = supabaseAdmin();
 
-    // buyer tek sefer kuralı: zaten member ise tekrar oluşturma
-    if (plan === "buyer_first") {
-      const prof = await supabaseAdmin.from("profiles").select("is_member,membership_plan").eq("id", user_id).single();
-      if (prof.data?.is_member && prof.data?.membership_plan === "buyer_activation") {
-        return NextResponse.json({ ok: true, already: true });
-      }
-    }
+  const amount = 100;
+  const memo = "Seller membership (1 year)";
 
-    const amount =
-      plan === "buyer_first" ? 0.1 :
-      plan === "seller_yearly" ? 100 :
-      null;
+  const pi = await piCreatePayment({
+    amount,
+    memo,
+    purpose: "seller_membership_yearly",
+    metadata: { uid, plan: "seller_yearly_100pi" },
+  });
 
-    if (amount === null) return NextResponse.json({ error: "invalid plan" }, { status: 400 });
+  const payment_id = pi.paymentId ?? pi.payment_id ?? pi.id;
 
-    const purpose =
-      plan === "buyer_first" ? "buyer_activation" :
-      "seller_yearly";
+  const ins = await admin.from("pi_payments").insert({
+    payment_id,
+    user_id: uid,
+    purpose: "seller_membership_yearly",
+    amount,
+    status: "created",
+    memo,
+    raw: pi,
+  }).select("id,payment_id").single();
 
-    // payment_id’yi Pi SDK front üretip gönderiyor varsayımı
-    // Eğer sen backend’de create edeceksen, onu da ekleriz.
-    const payment_id = crypto.randomUUID(); // MVP placeholder
+  if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 400 });
 
-    const { error } = await supabaseAdmin.from("pi_payments").insert({
-      payment_id,
-      txid: null,
-      user_id,
-      purpose,
-      amount,
-      status: "created",
-      raw: { plan },
-    });
-
-    if (error) throw new Error(error.message);
-
-    // frontend Pi SDK'ya bunu verip payment başlatır
-    return NextResponse.json({ ok: true, payment_id, amount, purpose });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "create failed" }, { status: 500 });
-  }
+  return NextResponse.json({ ok: true, payment_id: ins.data.payment_id, pi_raw: pi });
 }
