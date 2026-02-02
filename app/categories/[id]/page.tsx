@@ -56,7 +56,6 @@ export default function CategoryChildrenPage() {
     setSaving(true);
 
     try {
-      // Kullanıcının supabase auth oturumu olmalı
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData?.user?.id) {
         throw new Error("Giriş yok. (Supabase auth session bulunamadı)");
@@ -141,7 +140,6 @@ export default function CategoryChildrenPage() {
           <p style={{ opacity: 0.8, marginTop: 10 }}>
             Bu kategorinin altında alt kategori yok. Direkt bunu seçebilirsin.
           </p>
-
           <button
             disabled={saving}
             onClick={() => chooseThisCategory(parentId)}
