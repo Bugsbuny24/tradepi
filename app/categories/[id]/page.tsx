@@ -149,7 +149,3 @@ export default function CategoryChildrenPage() {
         <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#f7f7f7" }}>
           {msg}
         </div>
-      ) : null}
-    </div>
-  );
-            
