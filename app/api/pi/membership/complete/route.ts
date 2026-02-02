@@ -1,71 +1,79 @@
 // app/api/pi/membership/complete/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { piGetPayment } from "@/lib/piApi";
+import { getAuthedUserId } from "@/lib/getAuthedUserId";
+import { piCompletePayment } from "@/lib/piApi";
 
-function addOneYear(baseIso: string) {
-  const d = new Date(baseIso);
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString();
+function addYears(date: Date, years: number) {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + years);
+  return d;
 }
 
 export async function POST(req: Request) {
-  const { payment_id } = await req.json().catch(() => ({}));
-  if (!payment_id) return NextResponse.json({ error: "payment_id required" }, { status: 400 });
+  try {
+    const uid = await getAuthedUserId(req);
+    if (!uid) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const admin = supabaseAdmin();
-  const p = await piGetPayment(payment_id);
+    const body = await req.json().catch(() => ({}));
+    const payment_id = body?.payment_id as string | undefined;
+    const txid = body?.txid as string | undefined;
 
-  const status = (p.status ?? "").toLowerCase();
-  if (!["completed", "complete", "paid"].includes(status)) {
-    return NextResponse.json({ error: "NOT_COMPLETED", pi_status: p.status }, { status: 400 });
+    if (!payment_id) return NextResponse.json({ error: "payment_id required" }, { status: 400 });
+
+    const admin = supabaseAdmin();
+
+    // 1) DB kaydı var mı + sahibini kontrol et
+    const { data: row, error: rowErr } = await admin
+      .from("pi_payments")
+      .select("payment_id,user_id,purpose,status,amount")
+      .eq("payment_id", payment_id)
+      .single();
+
+    if (rowErr || !row) return NextResponse.json({ error: "payment not found" }, { status: 404 });
+    if (row.user_id !== uid) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    if (row.purpose !== "seller_membership_yearly")
+      return NextResponse.json({ error: "invalid purpose" }, { status: 400 });
+
+    // 2) Idempotency: zaten completed ise membership’i tekrar kurcalama
+    if (row.status === "completed") {
+      return NextResponse.json({ ok: true, status: "completed", already: true });
+    }
+    if (["cancelled", "failed"].includes(row.status)) {
+      return NextResponse.json({ ok: false, status: row.status, error: "payment not completable" }, { status: 400 });
+    }
+
+    // 3) Pi API complete çağır
+    const pi = await piCompletePayment(payment_id, txid);
+
+    // 4) DB: payment status completed + raw + txid (varsa)
+    const { error: upErr } = await admin
+      .from("pi_payments")
+      .update({ status: "completed", raw: pi.raw, txid: txid ?? null })
+      .eq("payment_id", payment_id)
+      .in("status", ["created", "server_approved"]); // idempotent geçiş
+
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+
+    // 5) Profil: üyelik set et (idempotent)
+    const now = new Date();
+    const expires = addYears(now, 1);
+
+    const { error: profErr } = await admin
+      .from("profiles")
+      .update({
+        is_member: true,
+        is_seller: true,
+        membership_plan: "seller_yearly_100pi",
+        membership_started_at: now.toISOString(),
+        membership_expires_at: expires.toISOString(),
+      })
+      .eq("id", uid);
+
+    if (profErr) return NextResponse.json({ error: profErr.message }, { status: 400 });
+
+    return NextResponse.json({ ok: true, status: "completed", payment_id });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "complete failed" }, { status: 400 });
   }
-
-  const row = await admin
-    .from("pi_payments")
-    .select("user_id,purpose,amount")
-    .eq("payment_id", payment_id)
-    .single();
-
-  if (row.error) return NextResponse.json({ error: row.error.message }, { status: 400 });
-  if (row.data.purpose !== "seller_membership_yearly") {
-    return NextResponse.json({ error: "WRONG_PURPOSE" }, { status: 400 });
-  }
-
-  const uid = row.data.user_id;
-  if (!uid) return NextResponse.json({ error: "NO_USER" }, { status: 400 });
-
-  // pi_payments update
-  await admin.from("pi_payments").update({
-    status: "completed",
-    txid: p.txid ?? p.transaction?.txid ?? null,
-    raw: p,
-    updated_at: new Date().toISOString(),
-  }).eq("payment_id", payment_id);
-
-  // profile: uzatma mantığı
-  const prof = await admin
-    .from("profiles")
-    .select("membership_expires_at,membership_started_at")
-    .eq("id", uid)
-    .single();
-
-  if (prof.error) return NextResponse.json({ error: prof.error.message }, { status: 400 });
-
-  const nowIso = new Date().toISOString();
-  const currentExp = prof.data.membership_expires_at;
-  const base = currentExp && new Date(currentExp) > new Date() ? currentExp : nowIso;
-  const newExp = addOneYear(base);
-
-  const upd = await admin.from("profiles").update({
-    is_seller: true,
-    is_member: true,
-    membership_plan: "seller_yearly_100pi",
-    membership_started_at: prof.data.membership_started_at ?? nowIso,
-    membership_expires_at: newExp,
-  }).eq("id", uid);
-
-  if (upd.error) return NextResponse.json({ error: upd.error.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true, membership_expires_at: newExp });
 }
