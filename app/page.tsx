@@ -22,10 +22,22 @@ export default function Home() {
 
       window.Pi.init?.({ version: "2.0" });
 
+      // ✅ 1) Önce authenticate (payments scope şart)
+      append("Authenticating (payments scope)...");
+      const scopes = ["payments", "username"]; // username opsiyonel ama iyi
+      const onIncompletePaymentFound = (payment: any) => {
+        append("Incomplete payment found (ignored for MVP).");
+        // İstersen burada incomplete payment handle edersin
+      };
+
+      const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+      append(`Auth OK: user=${authResult?.user?.username || "?"}`);
+
+      // ✅ 2) Sonra payment create
       const paymentData = {
         amount: 0.01,
         memo: "TradePiGloball verification payment",
-        metadata: { purpose: "checklist_step_10" }
+        metadata: { purpose: "checklist_step_10" },
       };
 
       const callbacks = {
@@ -34,7 +46,7 @@ export default function Home() {
           const r = await fetch("/api/pi/approve", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId })
+            body: JSON.stringify({ paymentId }),
           });
           if (!r.ok) throw new Error(await r.text());
           append("Server approve OK");
@@ -45,7 +57,7 @@ export default function Home() {
           const r = await fetch("/api/pi/complete", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId, txid })
+            body: JSON.stringify({ paymentId, txid }),
           });
           if (!r.ok) throw new Error(await r.text());
           append("Server complete OK ✅");
@@ -53,7 +65,7 @@ export default function Home() {
 
         onCancel: (paymentId: string) => append(`Cancelled: ${paymentId}`),
         onError: (err: any, payment: any) =>
-          append(`Error: ${JSON.stringify({ err, payment })}`)
+          append(`Error: ${JSON.stringify({ err, payment })}`),
       };
 
       append("Creating payment...");
@@ -73,7 +85,7 @@ export default function Home() {
           padding: "12px 16px",
           borderRadius: 10,
           border: "1px solid #ccc",
-          cursor: "pointer"
+          cursor: "pointer",
         }}
       >
         Verify Payment (0.01 Pi)
@@ -85,7 +97,7 @@ export default function Home() {
           padding: 12,
           background: "#f6f6f6",
           borderRadius: 10,
-          whiteSpace: "pre-wrap"
+          whiteSpace: "pre-wrap",
         }}
       >
         {log || "Log burada..."}
