@@ -1,35 +1,29 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { piGetPayment } from "@/lib/piVerify";
 
 export async function POST(req: Request) {
   try {
-    const { paymentId } = await req.json();
-    if (!paymentId) {
-      return NextResponse.json({ error: "paymentId required" }, { status: 400 });
-    }
+    const { payment_id } = await req.json();
+    if (!payment_id) return NextResponse.json({ error: "payment_id required" }, { status: 400 });
 
-    const apiKey = process.env.PI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "PI_API_KEY missing" }, { status: 500 });
+    // Pi'den doğrula
+    const piPayment = await piGetPayment(payment_id);
 
-    const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/approve`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${apiKey}`,
-      }
-    });
-
-    const text = await r.text();
-    if (!r.ok) return new NextResponse(text, { status: 400 });
-
-    // DB status güncelle
-    await supabaseAdmin
+    // Burada istersen kontrol:
+    // - amount doğru mu
+    // - recipient doğru mu (senin app wallet)
+    // - status vs
+    // Şimdilik raw'a yazıyoruz.
+    const { error } = await supabaseAdmin
       .from("pi_payments")
-      .update({ status: "approved", raw: { approve_response: text } })
-      .eq("payment_id", paymentId);
+      .update({ status: "server_approved", raw: piPayment })
+      .eq("payment_id", payment_id);
 
-    return new NextResponse(text, { status: 200 });
+    if (error) throw new Error(error.message);
+
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "unknown error" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "approve failed" }, { status: 500 });
   }
 }
