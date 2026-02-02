@@ -1,52 +1,61 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { membershipActive } from "@/lib/membership";
+import { ensurePiReady } from "@/lib/pi";
 import { useRouter } from "next/navigation";
-import { hasActiveMembership } from "@/lib/membership";
 
-type Props = {
-  userId: string | null; // Supabase user uuid (profiles.id)
-  children: React.ReactNode;
-};
-
-export default function SellerGate({ userId, children }: Props) {
+export default function SellerGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState("Kontrol ediliyor…");
 
   useEffect(() => {
     const run = async () => {
-      if (!userId) {
-        router.replace("/pi/membership"); // veya login sayfan
+      if (!ensurePiReady()) {
+        setMsg("Pi SDK yok.");
+        setLoading(false);
+        return;
+      }
+
+      // Pi authenticate ile uid alın (hafif çözüm)
+      let uid: string | null = null;
+      try {
+        const auth = await window.Pi.authenticate(["username"], () => {});
+        uid = auth?.user?.uid || null;
+      } catch {
+        uid = null;
+      }
+
+      if (!uid) {
+        router.replace("/");
         return;
       }
 
       const r = await fetch("/api/me/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ pi_uid: uid }),
       });
 
-      const j = await r.json();
-      const p = j?.profile;
-
-      if (!r.ok || !p) {
-        router.replace("/pi/membership");
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.profile) {
+        router.replace("/");
         return;
       }
 
-      // 1) satıcı değil -> satıcı başvuru sayfasına
+      const p = j.profile;
+
       if (!p.is_seller) {
         router.replace("/apply-seller");
         return;
       }
 
-      // 2) satıcı ama üyelik yok -> membership sayfasına
-      if (!hasActiveMembership(p.membership_expires_at)) {
+      if (!membershipActive(p.membership_expires_at)) {
         router.replace("/pi/membership");
         return;
       }
 
-      // 3) satıcı + üyelik var ama kategori seçilmemiş -> kategori seçime
       if (!p.selected_category_id) {
         router.replace("/categories");
         return;
@@ -56,11 +65,8 @@ export default function SellerGate({ userId, children }: Props) {
     };
 
     run();
-  }, [userId, router]);
+  }, [router]);
 
-  if (loading) {
-    return <div style={{ padding: 16 }}>Kontrol ediliyor…</div>;
-  }
-
+  if (loading) return <div style={{ padding: 16 }}>{msg}</div>;
   return <>{children}</>;
 }
