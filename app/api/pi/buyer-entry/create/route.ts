@@ -1,34 +1,30 @@
 // app/api/pi/buyer-entry/create/route.ts
-
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
 import { getAuthedUserId } from "@/lib/getAuthedUserId";
 import { piCreatePayment } from "@/lib/piApi";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
     const uid = await getAuthedUserId(req);
-    if (!uid) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
+    if (!uid) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
     const admin = supabaseAdmin();
 
-    // Buyer giriş ücreti (tek sefer)
-    const amount = 0.1;
-    const memo = "Buyer entry fee (one-time)";
+    const amount = 10;
+    const memo = "Buyer entry fee";
 
     const pi = await piCreatePayment({
       amount,
       memo,
       purpose: "buyer_entry",
-      metadata: { uid, plan: "buyer_entry_0_1pi" },
+      metadata: { uid },
     });
 
-    // pi artık normalized dönüyor: { payment_id, status, raw }
     const payment_id = pi.payment_id;
 
-    const { data, error } = await admin
+    const ins = await admin
       .from("pi_payments")
       .insert({
         payment_id,
@@ -38,23 +34,17 @@ export async function POST(req: Request) {
         status: "created",
         memo,
         raw: pi.raw,
+        updated_at: new Date().toISOString(),
       })
-      .select("id, payment_id")
+      .select("id,payment_id")
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (ins.error) {
+      return NextResponse.json({ error: ins.error.message }, { status: 400 });
     }
 
-    return NextResponse.json({
-      ok: true,
-      payment_id: data.payment_id,
-      pi_raw: pi.raw,
-    });
+    return NextResponse.json({ ok: true, payment_id: ins.data.payment_id, pi_raw: pi.raw });
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "UNKNOWN_ERROR" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message ?? "create failed" }, { status: 400 });
   }
 }
