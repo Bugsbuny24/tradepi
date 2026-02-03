@@ -20,7 +20,8 @@ export async function POST(req: Request) {
     metadata: { uid, plan: "seller_yearly_100pi" },
   });
 
-  const payment_id = pi.paymentId ?? pi.payment_id ?? pi.id;
+  // lib/piApi.ts normalizes the response shape to `{ payment_id, status, raw }`
+  const payment_id = pi.payment_id;
 
   const ins = await admin.from("pi_payments").insert({
     payment_id,
@@ -29,10 +30,11 @@ export async function POST(req: Request) {
     amount,
     status: "created",
     memo,
-    raw: pi,
+    raw: pi.raw,
+    updated_at: new Date().toISOString(),
   }).select("id,payment_id").single();
 
   if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 400 });
 
-  return NextResponse.json({ ok: true, payment_id: ins.data.payment_id, pi_raw: pi });
+  return NextResponse.json({ ok: true, payment_id: ins.data.payment_id, pi_raw: pi.raw });
 }
