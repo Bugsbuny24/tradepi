@@ -1,5 +1,4 @@
-// lib/supabaseAdmin.ts
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export function supabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
