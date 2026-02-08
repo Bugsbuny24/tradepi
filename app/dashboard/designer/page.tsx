@@ -1,88 +1,94 @@
 'use client'
 import { useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts'
 
 export default function DesignerPage() {
-  const [chartTitle, setChartTitle] = useState("Satış Analizi")
+  const [chartTitle, setChartTitle] = useState("Piyasa Analiz Verisi")
   const [data, setData] = useState([
-    { name: 'Oca', value: 400 },
-    { name: 'Şub', value: 700 },
-    { name: 'Mar', value: 500 },
-    { name: 'Nis', value: 900 },
+    { name: '01:00', value: 340 },
+    { name: '02:00', value: 520 },
+    { name: '03:00', value: 480 },
+    { name: '04:00', value: 890 },
+    { name: '05:00', value: 720 },
   ])
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col lg:flex-row">
+    <main className="min-h-screen bg-black text-white flex flex-col lg:flex-row font-sans">
       
-      {/* SOL PANEL: AYARLAR */}
-      <div className="w-full lg:w-96 border-r border-white/5 bg-[#050505] p-8 space-y-8 overflow-y-auto">
-        <div>
-          <h2 className="text-2xl font-black italic tracking-tighter text-yellow-500 uppercase">Designer v1</h2>
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Grafik Motoru Yapılandırması</p>
+      {/* SOL PANEL: KONTROL MERKEZİ */}
+      <div className="w-full lg:w-[400px] border-r border-white/5 bg-[#050505] p-10 flex flex-col justify-between">
+        <div className="space-y-10">
+          <div>
+            <h2 className="text-3xl font-black italic tracking-tighter text-yellow-500 uppercase">Designer</h2>
+            <div className="h-1 w-12 bg-yellow-500 mt-2"></div>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em]">Grafik İsmi</label>
+              <input 
+                value={chartTitle}
+                onChange={(e) => setChartTitle(e.target.value)}
+                className="w-full mt-3 bg-black border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-yellow-500/40 transition-all shadow-inner"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+               <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em]">Motor Modu</label>
+               <div className="p-4 bg-black rounded-2xl border border-yellow-500/20 text-yellow-500 text-xs font-bold uppercase tracking-widest text-center cursor-not-allowed">
+                 Live Matrix Engine (v1.0)
+               </div>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Grafik Başlığı</label>
-            <input 
-              value={chartTitle}
-              onChange={(e) => setChartTitle(e.target.value)}
-              className="w-full mt-2 bg-black border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-yellow-500/50"
-            />
-          </div>
-
-          <div>
-            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Grafik Tipi</label>
-            <select className="w-full mt-2 bg-black border border-white/10 rounded-xl p-3 text-sm outline-none text-white">
-              <option>Line Chart (Çizgi)</option>
-              <option>Bar Chart (Sütun)</option>
-              <option>Area Chart (Alan)</option>
-            </select>
-          </div>
-
-          <div className="pt-6">
-            <button className="w-full bg-yellow-500 text-black font-black py-4 rounded-2xl text-xs uppercase hover:scale-[1.02] transition-transform">
-              Sisteme Kaydet ve Yayınla
-            </button>
-          </div>
-        </div>
+        <button className="w-full bg-yellow-500 text-black font-black py-5 rounded-3xl text-xs uppercase hover:bg-yellow-400 transition-all shadow-2xl shadow-yellow-500/10 active:scale-95">
+          Veriyi Blokzincire Kaydet
+        </button>
       </div>
 
       {/* SAĞ PANEL: CANLI ÖNİZLEME */}
-      <div className="flex-1 p-12 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-yellow-500/5 via-transparent to-transparent">
-        <div className="w-full max-w-3xl">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-3xl font-bold tracking-tighter italic uppercase">{chartTitle}</h3>
-            <span className="bg-white/5 text-[10px] px-3 py-1 rounded-full text-yellow-500 border border-yellow-500/20 uppercase font-bold tracking-widest">Live Preview</span>
+      <div className="flex-1 p-8 lg:p-20 bg-[radial-gradient(circle_at_30%_30%,_rgba(251,191,36,0.05),_transparent)]">
+        <div className="mx-auto max-w-4xl space-y-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-4xl font-black tracking-tighter italic uppercase text-white/90">{chartTitle}</h3>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500/50">Canlı Yayında</span>
+            </div>
           </div>
 
-          <div className="h-[400px] w-full bg-[#050505] border border-white/5 rounded-[40px] p-8 shadow-2xl">
+          <div className="h-[500px] w-full bg-[#050505] border border-white/5 rounded-[50px] p-10 shadow-[0_40px_100px_-20px_rgba(0,0,0,1)]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#111" />
-                <XAxis dataKey="name" stroke="#444" fontSize={12} tickLine={false} axisLine={false} />
+              <AreaChart data={data}>
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#111" vertical={false} />
+                <XAxis dataKey="name" stroke="#333" fontSize={10} tickLine={false} axisLine={false} dy={20} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '12px' }}
-                  itemStyle={{ color: '#fbbf24' }}
+                  contentStyle={{ backgroundColor: '#000', border: 'none', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                  itemStyle={{ color: '#fbbf24', fontSize: '12px', fontWeight: '900' }}
                 />
-                <Line 
+                <Area 
                   type="monotone" 
                   dataKey="value" 
                   stroke="#fbbf24" 
-                  strokeWidth={5} 
-                  dot={{ r: 6, fill: '#fbbf24', strokeWidth: 0 }}
-                  activeDot={{ r: 8, strokeWidth: 0 }}
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorValue)" 
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
-          </div>
-
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 text-[10px] uppercase tracking-[0.4em]">Snap-Logic Engine Core v1.0.4</p>
           </div>
         </div>
       </div>
-
     </main>
   )
 }
