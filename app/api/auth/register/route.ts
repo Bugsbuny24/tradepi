@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST(request: Request) {
-  const url = new URL(request.url);
-  const origin = url.origin;
-
-  const formData = await request.formData();
+export async function POST(req: Request) {
+  const formData = await req.formData();
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
-  const nextPath = String(formData.get("next") || "/dashboard");
+  const next = String(formData.get("next") || "/dashboard");
 
   if (!email || !password) {
-    return NextResponse.redirect(`${origin}/auth/register?error=missing_fields`, { status: 303 });
+    return NextResponse.redirect(
+      new URL(`/auth/register?error=${encodeURIComponent("missing_fields")}`, req.url)
+    );
   }
 
   const supabase = await createClient();
@@ -19,23 +18,25 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      // Email confirmation açıksa bu şart:
-      emailRedirectTo: `${origin}/auth/callback`,
-    },
   });
 
   if (error) {
     return NextResponse.redirect(
-      `${origin}/auth/register?error=${encodeURIComponent(error.message)}`,
-      { status: 303 }
+      new URL(`/auth/register?error=${encodeURIComponent(error.message)}`, req.url)
     );
   }
 
-  // Eğer Supabase email confirm istiyorsa session null gelir.
+  // Email confirmation açıksa session null olabilir.
   if (!data.session) {
-    return NextResponse.redirect(`${origin}/auth/login?checkEmail=1`, { status: 303 });
+    return NextResponse.redirect(
+      new URL(
+        `/auth/login?message=${encodeURIComponent(
+          "Kayıt tamam. E-postanı kontrol edip doğruladıktan sonra giriş yap."
+        )}`,
+        req.url
+      )
+    );
   }
 
-  return NextResponse.redirect(`${origin}${nextPath}`, { status: 303 });
+  return NextResponse.redirect(new URL(next, req.url));
 }
