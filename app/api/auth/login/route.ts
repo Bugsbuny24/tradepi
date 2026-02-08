@@ -1,54 +1,60 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-function getSupabaseRouteClient(request: NextRequest, response: NextResponse) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Record<string, any>;
+};
 
-  if (!url || !anonKey) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
-  }
+export async function POST(request: Request) {
+  const formData = await request.formData();
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "").trim();
+  const next = String(formData.get("next") ?? "/dashboard");
 
-  return createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options)
-        })
-      },
-    },
-  })
-}
-
-export async function POST(request: NextRequest) {
-  const formData = await request.formData()
-  const email = String(formData.get('email') ?? '').trim()
-  const password = String(formData.get('password') ?? '')
-  const next = String(formData.get('next') ?? '/dashboard')
+  const url = new URL(request.url);
+  const origin = url.origin;
 
   if (!email || !password) {
-    return NextResponse.redirect(new URL('/auth/login?error=missing_fields', request.url), { status: 303 })
+    return NextResponse.redirect(
+      `${origin}/auth/login?error=missing_fields&next=${encodeURIComponent(next)}`,
+      { status: 303 }
+    );
   }
 
-  // Success redirect response'u ÖNDEN oluşturuyoruz ki Supabase cookie'leri buna yazabilsin.
-  const successResponse = NextResponse.redirect(new URL(next, request.url), { status: 303 })
-  const supabase = getSupabaseRouteClient(request, successResponse)
+  // ✅ Next.js cookie store
+  const cookieStore = cookies();
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  // ✅ Supabase SSR client (cookie refresh/set here)
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    const msg = (error.message || '').toLowerCase()
-    if (msg.includes('email') && msg.includes('confirm')) {
-      return NextResponse.redirect(new URL('/auth/login?error=email_not_confirmed', request.url), { status: 303 })
-    }
     return NextResponse.redirect(
-      new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, request.url),
+      `${origin}/auth/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(
+        next
+      )}`,
       { status: 303 }
-    )
+    );
   }
 
-  return successResponse
+  return NextResponse.redirect(`${origin}${next}`, { status: 303 });
 }
