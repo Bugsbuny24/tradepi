@@ -11,106 +11,113 @@ function sha256Hex(input: string) {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: { token: string } }
-) {
+export async function GET(req: Request, { params }: { params: { token: string } }) {
   const admin = createAdminClient();
   const token = decodeURIComponent(params.token ?? "").trim();
 
-  if (!token) {
-    return NextResponse.json({ error: "TOKEN_REQUIRED" }, { status: 400 });
-  }
+  if (!token) return NextResponse.json({ error: "TOKEN_REQUIRED" }, { status: 400 });
 
   let tokenId: string | null = null;
   let chartId: string | null = null;
   let ownerId: string | null = null;
 
-  // 1) Token Çözümleme
+  // 1) Token çözümleme
   if (isUuid(token)) {
-    chartId = token; 
+    chartId = token;
   } else {
     const prefix = token.slice(0, 8);
     const hash = sha256Hex(token);
 
-    const { data: tData } = await admin
+    const { data: tData, error: tErr } = await admin
       .from("chart_tokens")
-      .select("id, chart_id, user_id")
+      .select("id, chart_id, user_id, revoked_at, expires_at, scope")
       .eq("token_prefix", prefix)
       .eq("token_hash", hash)
       .is("revoked_at", null)
       .maybeSingle();
 
+    if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 });
     if (!tData) return NextResponse.json({ error: "INVALID_TOKEN" }, { status: 403 });
-    
+    if (tData.expires_at && new Date(tData.expires_at).getTime() <= Date.now()) {
+      return NextResponse.json({ error: "TOKEN_EXPIRED" }, { status: 403 });
+    }
+
+    // scope kontrol (istersen daha esnek yaparız)
+    if (tData.scope && !["api", "all", "read"].includes(String(tData.scope))) {
+      return NextResponse.json({ error: "TOKEN_SCOPE_FORBIDDEN" }, { status: 403 });
+    }
+
     tokenId = tData.id;
     chartId = tData.chart_id;
     ownerId = tData.user_id;
   }
 
-  // 2) Grafik Verisini Çek
+  // 2) Chart + data + settings çek
   const { data: chart, error: chartErr } = await admin
     .from("charts")
     .select("*, data_entries(*), embed_settings(*)")
     .eq("id", chartId)
     .single();
 
-  if (chartErr || !chart) {
-    return NextResponse.json({ error: "CHART_NOT_FOUND" }, { status: 404 });
+  if (chartErr || !chart) return NextResponse.json({ error: "CHART_NOT_FOUND" }, { status: 404 });
+
+  ownerId = ownerId ?? chart.user_id;
+
+  // UUID direct kullanıyorsan public şart (sıkı güvenlik)
+  if (isUuid(token)) {
+    const isPublic = Boolean(chart.is_public) || Boolean(chart.embed_settings?.is_public);
+    if (!isPublic) return NextResponse.json({ error: "NOT_PUBLIC" }, { status: 403 });
   }
 
-  // 3) Kredi Tüketimi - İKİ PARAMETRE: (admin, { veri })
+  // 3) ✅ API kredisi düş
   try {
-    const wantsNoWatermark = chart.embed_settings?.remove_watermark || false;
-    
     await consumeCredits(admin, {
-      userId: ownerId || chart.user_id,
-      meter: wantsNoWatermark ? "watermark_off_views_remaining" : "embed_view_remaining",
+      userId: ownerId,
+      meter: "api_call_remaining",
       amount: 1,
-      refType: "chart_view",
-      refId: chartId,
-      meta: { token_id: tokenId }
+      refType: "api_call",
+      refId: chartId!,
+      meta: { token_id: tokenId },
     });
-    
   } catch (e: any) {
     return NextResponse.json(
-      { 
-        error: "TOPUP_REQUIRED", 
-        message: e?.message || "Kredi yetersiz.",
-        meter: chart.embed_settings?.remove_watermark ? "watermark_off_views_remaining" : "embed_view_remaining"
-      }, 
+      { error: "TOPUP_REQUIRED", message: e?.message || "Kredi yetersiz.", meter: "api_call_remaining" },
       { status: 402 }
     );
   }
 
-  // 4) Analytics Kaydı
+  // 4) ✅ API analytics
   if (tokenId) {
     const { data: existing } = await admin
-      .from("embed_counters")
-      .select("view_count")
+      .from("api_counters")
+      .select("call_count")
       .eq("token_id", tokenId)
       .maybeSingle();
 
     if (existing) {
       await admin
-        .from("embed_counters")
+        .from("api_counters")
         .update({
-          view_count: (existing.view_count ?? 0) + 1,
-          last_view_at: new Date().toISOString(),
+          call_count: (existing.call_count ?? 0) + 1,
+          last_call_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq("token_id", tokenId);
     } else {
-      await admin.from("embed_counters").insert({
+      await admin.from("api_counters").insert({
         token_id: tokenId,
         chart_id: chartId,
-        owner_id: ownerId || chart.user_id,
-        view_count: 1,
-        last_view_at: new Date().toISOString(),
+        owner_id: ownerId,
+        call_count: 1,
+        last_call_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
     }
   }
 
-  return NextResponse.json({ ok: true, chart });
+  // 5) SAF JSON
+  return NextResponse.json({
+    ok: true,
+    chart,
+  });
 }
