@@ -1,119 +1,130 @@
 import Link from "next/link";
-import { BarChart3, ShieldCheck, Zap, Globe, Cpu, CreditCard, Layers, MousePointer2, CheckCircle2 } from "lucide-react";
+import { BarChart3, ShieldCheck, Cpu, CreditCard, Globe, Zap, MousePointer2, Check } from "lucide-react";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-black text-white font-sans selection:bg-yellow-500 selection:text-black">
+    <main className="min-h-screen bg-[#000] text-white selection:bg-yellow-500 selection:text-black font-sans tracking-tight">
       
-      {/* 1. HERO: ANA GİRİŞ */}
-      <section className="relative flex min-h-[85vh] flex-col items-center justify-center p-6 text-center overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-yellow-500/10 blur-[120px] rounded-full"></div>
+      {/* --- NAV BAR --- */}
+      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/50 backdrop-blur-xl px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="text-xl font-black italic tracking-tighter uppercase">
+            Snap<span className="text-yellow-500">Logic</span>
+          </div>
+          <div className="flex gap-6 items-center">
+            <Link href="/auth/login" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Oturum Aç</Link>
+            <Link href="/auth/register" className="bg-white text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-yellow-500 transition-all">Başla</Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* --- HERO: VİZYON --- */}
+      <section className="relative pt-40 pb-20 px-6 text-center overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-yellow-500/5 blur-[120px] rounded-full opacity-50"></div>
         
-        <div className="relative z-10 space-y-6 max-w-5xl">
-          <div className="inline-block px-4 py-1 rounded-full border border-yellow-500/20 bg-yellow-500/5 text-yellow-500 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
-            Next-Gen Data Engine v1.0
-          </div>
-          <h1 className="text-7xl md:text-[120px] font-black italic tracking-tighter uppercase leading-[0.85]">
-            VERİYİ <span className="text-yellow-500">ATEŞLE</span>
+        <div className="relative z-10 max-w-4xl mx-auto space-y-8">
+          <h1 className="text-5xl md:text-8xl font-black uppercase italic leading-[0.9] tracking-tighter">
+            Veri Analitiğinde <br />
+            <span className="text-yellow-500">Yeni Standart.</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-gray-400 text-lg md:text-xl font-medium leading-relaxed">
-            SnapLogic, karmaşık verilerinizi <span className="text-white">SnapScript v0</span> motoruyla fütüristik grafiklere ve canlı widgetlara dönüştürür.
+          <p className="text-gray-500 text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed italic">
+            SnapScript v0 motoruyla güçlendirilmiş, dünyanın ilk Pi-Native veri görselleştirme terminali ile tanışın.
           </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-10">
-            <Link href="/auth/register" className="w-full sm:w-auto px-12 py-5 bg-yellow-500 text-black font-black uppercase text-xs rounded-2xl transition-all hover:scale-105 shadow-[0_0_40px_-10px_rgba(251,191,36,0.5)] active:scale-95">
-              ÜCRETSİZ BAŞLA
-            </Link>
-            <Link href="/auth/login" className="w-full sm:w-auto px-12 py-5 border border-white/10 text-white font-black uppercase text-xs rounded-2xl transition-all hover:bg-white/5 active:scale-95">
-              GİRİŞ YAP
+          <div className="flex justify-center gap-4 pt-4">
+            <Link href="/auth/register" className="group relative px-10 py-4 bg-yellow-500 text-black font-black uppercase text-[11px] rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-yellow-500/20">
+              Sistemi Keşfet
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 2. MODÜLLER: NELER YAPABİLİRSİN? */}
-      <section className="py-24 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-black italic uppercase tracking-tighter text-yellow-500">TEKNOLOJİ KATMANLARI</h2>
-          <p className="text-gray-600 text-[10px] uppercase tracking-[0.4em] mt-2 italic font-bold">Dünyanın İlk Pi-Native Veri Terminali</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <div className="p-8 rounded-[40px] border border-white/5 bg-[#050505] hover:border-yellow-500/20 transition-all group">
-            <MousePointer2 className="text-yellow-500 mb-6" size={32} />
-            <h3 className="text-xl font-black italic uppercase italic">Snap-Designer</h3>
-            <p className="text-sm text-gray-500 mt-4 leading-relaxed italic">Kod yazmadan, sürükle-bırak ile profesyonel grafikler. Excel/CSV desteği tam entegre.</p>
-          </div>
-
-          <div className="p-8 rounded-[40px] border border-white/5 bg-[#050505] hover:border-yellow-500/20 transition-all group border-yellow-500/30">
-            <Cpu className="text-yellow-500 mb-6" size={32} />
-            <h3 className="text-xl font-black italic uppercase italic text-yellow-500">SnapScript v0</h3>
-            <p className="text-sm text-gray-400 mt-4 leading-relaxed italic">Kendi reaktif dilimiz. Veriler arası matematiksel bağıntılar ve akıllı tetikleyiciler kurun.</p>
-          </div>
-
-          <div className="p-8 rounded-[40px] border border-white/5 bg-[#050505] hover:border-yellow-500/20 transition-all group">
-            <CreditCard className="text-yellow-500 mb-6" size={32} />
-            <h3 className="text-xl font-black italic uppercase italic">Pi-Pay Billing</h3>
-            <p className="text-sm text-gray-500 mt-4 leading-relaxed italic">Kota ve abonelik işlemlerinizi Pi Browser üzerinden blokzincir güvencesiyle halledin.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. PRICING: FİYATLANDIRMA (ELİT MODEL) */}
-      <section className="py-24 px-6 max-w-7xl mx-auto bg-[#020202] rounded-[60px] border border-white/5">
-        <div className="text-center mb-20">
-          <h2 className="text-5xl font-black italic uppercase text-white tracking-tighter">YATIRIM <span className="text-yellow-500">PLANLARI</span></h2>
-          <p className="text-gray-500 text-[10px] uppercase tracking-[0.4em] mt-4 font-bold italic">Geleceğin Veri Ekonomisinde Yerinizi Ayırın</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-center">
+      {/* --- MODULES: TEKNOLOJİ --- */}
+      <section className="py-24 px-6 max-w-7xl mx-auto border-t border-white/5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           
-          {/* LITE */}
-          <div className="p-10 rounded-[48px] border border-white/5 bg-black flex flex-col h-full">
-            <div className="text-gray-600 text-[10px] font-black uppercase tracking-widest mb-6 italic">Spark / Bireysel</div>
-            <h3 className="text-3xl font-black uppercase italic italic">15 <span className="text-yellow-500 text-sm">PI</span></h3>
-            <ul className="mt-10 space-y-5 text-xs text-gray-500 font-bold uppercase tracking-widest">
-              <li className="flex gap-2"><CheckCircle2 size={14} className="text-yellow-500"/> 2,000 İzlenim</li>
-              <li className="flex gap-2"><CheckCircle2 size={14} className="text-yellow-500"/> Standart Modüller</li>
-              <li className="flex gap-2 text-gray-800 line-through"><CheckCircle2 size={14}/> SnapScript v0</li>
-            </ul>
-            <Link href="/auth/register" className="mt-auto pt-10 w-full text-center text-yellow-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all">Sisteme Katıl →</Link>
+          <div className="space-y-4">
+            <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center border border-yellow-500/20">
+              <Cpu className="text-yellow-500" size={20} />
+            </div>
+            <h3 className="text-lg font-black uppercase italic">SnapScript Engine</h3>
+            <p className="text-gray-500 text-sm leading-relaxed">Veriler arası reaktif bağıntılar kuran özel düşük-seviyeli kodlama dili.</p>
           </div>
 
-          {/* CORE - ÖNERİLEN */}
-          <div className="p-12 rounded-[50px] border-2 border-yellow-500 bg-yellow-500/5 shadow-[0_0_80px_-20px_rgba(251,191,36,0.4)] relative flex flex-col h-[110%] z-10">
-            <div className="absolute top-8 right-8 bg-yellow-500 text-black text-[9px] font-black py-1 px-4 rounded-full uppercase italic">En Çok Tercih Edilen</div>
-            <div className="text-yellow-500 text-[10px] font-black uppercase tracking-widest mb-6 italic">Pro / Geliştirici</div>
-            <h3 className="text-5xl font-black uppercase italic text-white">85 <span className="text-yellow-500 text-xl font-black uppercase italic">PI</span></h3>
-            <ul className="mt-12 space-y-6 text-xs text-white/90 font-bold uppercase tracking-[0.15em]">
-              <li className="flex gap-3 text-yellow-500"><CheckCircle2 size={16}/> SnapScript v0 Erişimi</li>
-              <li className="flex gap-3"><CheckCircle2 size={16}/> 20,000 Grafik İzlenimi</li>
-              <li className="flex gap-3"><CheckCircle2 size={16}/> Watermark Kaldırma</li>
-              <li className="flex gap-3"><CheckCircle2 size={16}/> Pro Widget Seti</li>
-            </ul>
-            <Link href="/auth/register" className="mt-auto w-full py-5 bg-yellow-500 text-black text-center text-[10px] font-black uppercase rounded-2xl hover:scale-105 transition-all shadow-xl shadow-yellow-500/20">HEMEN CORE'A GEÇ</Link>
+          <div className="space-y-4">
+            <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center border border-yellow-500/20">
+              <Globe className="text-yellow-500" size={20} />
+            </div>
+            <h3 className="text-lg font-black uppercase italic">Universal Embed</h3>
+            <p className="text-gray-500 text-sm leading-relaxed">Görselleştirmelerinizi her türlü dijital ortama tek satır kodla entegre edin.</p>
           </div>
 
-          {/* NOVA */}
-          <div className="p-10 rounded-[48px] border border-white/5 bg-black flex flex-col h-full">
-            <div className="text-gray-600 text-[10px] font-black uppercase tracking-widest mb-6 italic">Enterprise / İşletme</div>
-            <h3 className="text-3xl font-black uppercase italic italic">350 <span className="text-yellow-500 text-sm font-black uppercase italic">PI</span></h3>
-            <ul className="mt-10 space-y-5 text-xs text-gray-500 font-bold uppercase tracking-widest">
-              <li className="flex gap-2"><CheckCircle2 size={14} className="text-yellow-500"/> Sınırsız Veri Akışı</li>
-              <li className="flex gap-2"><CheckCircle2 size={14} className="text-yellow-500"/> Özel Domain</li>
-              <li className="flex gap-2"><CheckCircle2 size={14} className="text-yellow-500"/> 7/24 Teknik Destek</li>
-            </ul>
-            <Link href="/auth/register" className="mt-auto pt-10 w-full text-center text-white text-[10px] font-black uppercase tracking-widest hover:text-yellow-500 transition-all">İletişime Geç →</Link>
+          <div className="space-y-4">
+            <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center border border-yellow-500/20">
+              <ShieldCheck className="text-yellow-500" size={20} />
+            </div>
+            <h3 className="text-lg font-black uppercase italic">Pi-Native Billing</h3>
+            <p className="text-gray-500 text-sm leading-relaxed">Tamamen blokzincir tabanlı, şeffaf ve güvenli abonelik yönetim sistemi.</p>
           </div>
 
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="py-20 text-center border-t border-white/5">
-        <div className="text-[10px] text-gray-800 uppercase tracking-[0.6em] font-black italic">
-          SnapLogic v1.0 • Bursa Terminal • built on Pi Network
+      {/* --- PRICING: ELİT PLANLAR --- */}
+      <section className="py-24 px-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Plan 1 */}
+          <div className="p-8 rounded-3xl bg-[#080808] border border-white/5 flex flex-col justify-between">
+            <div className="space-y-6">
+              <span className="text-gray-600 text-[9px] font-black uppercase tracking-widest">Aşama 01 / Spark</span>
+              <div className="text-4xl font-black">15 <span className="text-yellow-500 text-sm">PI</span></div>
+              <ul className="space-y-3 text-[11px] font-bold uppercase text-gray-400 tracking-wider">
+                <li className="flex gap-2 items-center"><Check size={14} className="text-yellow-500"/> 2,000 İzlenim</li>
+                <li className="flex gap-2 items-center"><Check size={14} className="text-yellow-500"/> Temel Modüller</li>
+              </ul>
+            </div>
+            <Link href="/auth/register" className="mt-12 block w-full text-center py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-all">Seç</Link>
+          </div>
+
+          {/* Plan 2: CORE */}
+          <div className="p-8 rounded-3xl bg-white text-black flex flex-col justify-between transform md:scale-105 shadow-2xl">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Aşama 02 / Pro</span>
+                <span className="bg-black text-white px-3 py-1 rounded-full text-[8px] font-black uppercase">Popüler</span>
+              </div>
+              <div className="text-5xl font-black italic">85 <span className="text-gray-500 text-sm">PI</span></div>
+              <ul className="space-y-3 text-[11px] font-black uppercase tracking-wider">
+                <li className="flex gap-2 items-center text-yellow-600"><Check size={14}/> SnapScript v0 Erişimi</li>
+                <li className="flex gap-2 items-center"><Check size={14}/> 20,000 İzlenim</li>
+                <li className="flex gap-2 items-center"><Check size={14}/> Logo Kaldırma</li>
+              </ul>
+            </div>
+            <Link href="/auth/register" className="mt-12 block w-full text-center py-4 bg-black text-white rounded-xl text-[10px] font-black uppercase hover:opacity-90 transition-all">Hemen Edin</Link>
+          </div>
+
+          {/* Plan 3 */}
+          <div className="p-8 rounded-3xl bg-[#080808] border border-white/5 flex flex-col justify-between">
+            <div className="space-y-6">
+              <span className="text-gray-600 text-[9px] font-black uppercase tracking-widest">Aşama 03 / Nova</span>
+              <div className="text-4xl font-black">350 <span className="text-yellow-500 text-sm">PI</span></div>
+              <ul className="space-y-3 text-[11px] font-bold uppercase text-gray-400 tracking-wider">
+                <li className="flex gap-2 items-center"><Check size={14} className="text-yellow-500"/> Sınırsız Akış</li>
+                <li className="flex gap-2 items-center"><Check size={14} className="text-yellow-500"/> Özel Domain</li>
+                <li className="flex gap-2 items-center"><Check size={14} className="text-yellow-500"/> 7/24 Destek</li>
+              </ul>
+            </div>
+            <Link href="/auth/register" className="mt-12 block w-full text-center py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-all">İletişim</Link>
+          </div>
+
         </div>
+      </section>
+
+      {/* --- FOOTER --- */}
+      <footer className="py-20 text-center border-t border-white/5">
+        <p className="text-[10px] text-gray-800 font-black uppercase tracking-[0.5em] italic">
+          SnapLogic v1.0 • Global Terminal • Bursa, Türkiye
+        </p>
       </footer>
 
     </main>
