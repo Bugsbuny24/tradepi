@@ -7,20 +7,14 @@ export default function LoginPage() {
           <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-gray-600">SnapLogic Veri Ağına Bağlan</p>
         </div>
 
-        <form className="mt-10 space-y-4" action="/auth/login" method="post">
+        <form className="mt-10 space-y-4" action="/api/auth/login" method="POST">
           <input
             className="w-full rounded-2xl border border-white/5 bg-black p-4 text-sm text-white outline-none focus:border-yellow-500/50 transition-all placeholder:text-gray-800"
-            name="email"
-            type="email"
-            placeholder="E-POSTA"
-            required
+            name="email" type="email" placeholder="E-POSTA" required
           />
           <input
             className="w-full rounded-2xl border border-white/5 bg-black p-4 text-sm text-white outline-none focus:border-yellow-500/50 transition-all placeholder:text-gray-800"
-            name="password"
-            type="password"
-            placeholder="ŞİFRE"
-            required
+            name="password" type="password" placeholder="ŞİFRE" required
           />
           <button className="w-full rounded-2xl bg-yellow-500 py-4 text-xs font-black uppercase text-black transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-yellow-500/20">
             Sisteme Giriş Yap
