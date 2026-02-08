@@ -24,7 +24,18 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 1. Eğer kullanıcı giriş yapmışsa ve hala Auth sayfalarındaysa (Login/Register) -> Dashboard'a at
+  if (user && request.nextUrl.pathname.startsWith('/auth')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // 2. Eğer kullanıcı giriş yapmamışsa ve Dashboard'a girmeye çalışıyorsa -> Login'e at
+  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
+  }
+
   return response;
 }
 
