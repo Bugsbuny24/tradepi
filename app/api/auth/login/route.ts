@@ -10,8 +10,8 @@ export async function POST(req: Request) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return NextResponse.redirect(new URL("/auth/login?error=1", req.url));
+    return NextResponse.redirect(new URL("/auth/login?error=auth_failed", req.url), { status: 303 });
   }
 
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+  return NextResponse.redirect(new URL("/dashboard", req.url), { status: 303 });
 }
