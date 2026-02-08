@@ -1,60 +1,54 @@
-import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createServerClient } from '@supabase/ssr'
+import { NextRequest, NextResponse } from 'next/server'
 
-function redirectUrl(origin: string, path: string, params?: Record<string, string>) {
-  const url = new URL(path, origin);
-  if (params) {
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+function getSupabaseRouteClient(request: NextRequest, response: NextResponse) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
-  return url.toString();
+
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options)
+        })
+      },
+    },
+  })
 }
 
-export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-
-  const formData = await request.formData();
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
-  const next = String(formData.get("next") || "/dashboard");
-
-  const origin = request.headers.get("origin") || "http://localhost:3000";
+export async function POST(request: NextRequest) {
+  const formData = await request.formData()
+  const email = String(formData.get('email') ?? '').trim()
+  const password = String(formData.get('password') ?? '')
+  const next = String(formData.get('next') ?? '/dashboard')
 
   if (!email || !password) {
-    return NextResponse.redirect(
-      redirectUrl(origin, "/auth/login", { error: "missing_fields", next, email }),
-      { status: 303 }
-    );
+    return NextResponse.redirect(new URL('/auth/login?error=missing_fields', request.url), { status: 303 })
   }
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  // Success redirect response'u ÖNDEN oluşturuyoruz ki Supabase cookie'leri buna yazabilsin.
+  const successResponse = NextResponse.redirect(new URL(next, request.url), { status: 303 })
+  const supabase = getSupabaseRouteClient(request, successResponse)
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    const msg = (error.message || "").toLowerCase();
-
-    // email doğrulaması gerekiyorsa:
-    if (msg.includes("confirm") || msg.includes("not confirmed")) {
-      return NextResponse.redirect(
-        redirectUrl(origin, "/auth/login", {
-          error: "email_not_confirmed",
-          checkEmail: "1",
-          email,
-          next,
-        }),
-        { status: 303 }
-      );
+    const msg = (error.message || '').toLowerCase()
+    if (msg.includes('email') && msg.includes('confirm')) {
+      return NextResponse.redirect(new URL('/auth/login?error=email_not_confirmed', request.url), { status: 303 })
     }
-
-    // klasik yanlış şifre/mail
     return NextResponse.redirect(
-      redirectUrl(origin, "/auth/login", {
-        error: encodeURIComponent(error.message),
-        email,
-        next,
-      }),
+      new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, request.url),
       { status: 303 }
-    );
+    )
   }
 
-  return NextResponse.redirect(redirectUrl(origin, next), { status: 303 });
+  return successResponse
 }
