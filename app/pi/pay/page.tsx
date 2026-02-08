@@ -10,68 +10,64 @@ declare global {
   }
 }
 
+export const dynamic = "force-dynamic";
+
 export default function PiPayPage() {
   const sp = useSearchParams();
-  const package_code = (sp.get("code") ?? "").trim();
-  const return_to = (sp.get("return") ?? "/dashboard").trim();
+  const code = (sp.get("code") ?? "").trim();
+  const returnTo = (sp.get("return") ?? "/dashboard").trim();
 
-  const [ready, setReady] = useState(false);
-  const [msg, setMsg] = useState<string>("Pi SDK yükleniyor…");
+  const [sdkReady, setSdkReady] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string>("Pi SDK yükleniyor…");
   const [pkg, setPkg] = useState<{ code: string; title: string; price_pi: number } | null>(null);
 
-  const canStart = useMemo(() => !!package_code && !!pkg && ready && !loading, [
-    package_code,
-    pkg,
-    ready,
-    loading,
-  ]);
-
-  // Paketi server’dan çek (anon route yok; senin app’te login varsayıyoruz)
   useEffect(() => {
     let mounted = true;
-    async function load() {
-      if (!package_code) {
-        setMsg("Eksik: ?code=PACKAGE_CODE");
+
+    async function loadPkg() {
+      if (!code) {
+        setMsg("Eksik parametre: ?code=PACKAGE_CODE");
         return;
       }
       try {
-        const res = await fetch(`/api/pi/package?code=${encodeURIComponent(package_code)}`, {
-          method: "GET",
-        });
+        const res = await fetch(`/api/pi/package?code=${encodeURIComponent(code)}`);
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json?.error ?? "Package fetch failed");
+        if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
         if (!mounted) return;
         setPkg(json.package);
-        setMsg("Hazır. Ödemeyi başlatabilirsin ✅");
+        setMsg("Hazır ✅ Pi Browser içinden ödemeyi başlatabilirsin.");
       } catch (e: any) {
         if (!mounted) return;
-        setMsg(`Hata: ${e?.message ?? "Unknown"}`);
+        setMsg(`Hata: ${e?.message ?? "Package load failed"}`);
       }
     }
-    load();
+
+    loadPkg();
     return () => {
       mounted = false;
     };
-  }, [package_code]);
+  }, [code]);
 
   function initPi() {
     try {
       const Pi = window.Pi;
       if (!Pi) return;
-
       Pi.init({ version: "2.0" });
-      setReady(true);
+      setSdkReady(true);
     } catch {
-      setMsg("Pi init başarısız.");
+      setMsg("Pi SDK init başarısız.");
     }
   }
 
-  async function startPayment() {
+  const canPay = useMemo(() => !!pkg && sdkReady && !loading, [pkg, sdkReady, loading]);
+
+  async function start() {
     if (!pkg) return;
+
     const Pi = window.Pi;
     if (!Pi) {
-      setMsg("Pi SDK yok. Bu sayfayı Pi Browser’da aç.");
+      setMsg("Pi SDK bulunamadı. Bu sayfayı Pi Browser’da aç.");
       return;
     }
 
@@ -80,7 +76,6 @@ export default function PiPayPage() {
 
     try {
       await Pi.authenticate(["payments"], function onIncompletePaymentFound(payment: any) {
-        // İstersen burada incomplete payment’ları handle edebilirsin.
         console.log("Incomplete payment found", payment);
       });
 
@@ -106,7 +101,7 @@ export default function PiPayPage() {
           },
 
           onReadyForServerCompletion: async function (paymentId: string, txid: string) {
-            setMsg("Server completion + quota…");
+            setMsg("Doğrulama + quota yükleniyor…");
             const res = await fetch("/api/pi/complete", {
               method: "POST",
               headers: { "content-type": "application/json" },
@@ -118,9 +113,8 @@ export default function PiPayPage() {
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json?.error ?? "Complete failed");
-
             setMsg(json?.already_processed ? "Zaten işlenmiş ✅" : "Başarılı ✅");
-            window.location.href = return_to;
+            window.location.href = returnTo;
           },
 
           onCancel: function () {
@@ -143,9 +137,9 @@ export default function PiPayPage() {
 
   return (
     <div className="mx-auto max-w-lg p-6">
-      <h1 className="text-xl font-bold">Pi Ödeme</h1>
+      <h1 className="text-xl font-bold">Pay with Pi</h1>
       <p className="mt-2 text-sm text-gray-600">
-        Bu sayfa Pi Browser içinde çalışır. Paket: <b>{package_code || "-"}</b>
+        Bu sayfa Pi Browser içinde çalışır. Paket kodu: <b>{code || "-"}</b>
       </p>
 
       <div className="mt-4 rounded-xl border bg-white p-4 shadow-sm">
@@ -153,25 +147,26 @@ export default function PiPayPage() {
 
         {pkg && (
           <div className="mt-3 text-sm text-gray-700">
-            <div><b>{pkg.title}</b></div>
+            <div>
+              <b>{pkg.title}</b>
+            </div>
             <div>{pkg.price_pi} PI</div>
           </div>
         )}
 
         <button
           className="mt-4 w-full rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          onClick={startPayment}
-          disabled={!canStart}
+          onClick={start}
+          disabled={!canPay}
         >
           {loading ? "İşleniyor…" : "Pay with Pi"}
         </button>
 
         <div className="mt-3 text-xs text-gray-500">
-          Not: Otomatik onay, Pi Server /complete yanıtına göre verilir.
+          Not: Doğrulama server-side <code>/complete</code> ile yapılır.
         </div>
       </div>
 
-      {/* Pi SDK */}
       <Script
         src="https://sdk.minepi.com/pi-sdk.js"
         strategy="afterInteractive"
@@ -182,4 +177,4 @@ export default function PiPayPage() {
       />
     </div>
   );
-              }
+                             }
