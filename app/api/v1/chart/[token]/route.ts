@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server"; // sende nasıl ise bunu uyarlarsın
+import { createClient } from "@/lib/supabase/server"; // sende nasıl ise uyarlarsın
+import { tokenPrefix, tokenHashSha256 } from "@/lib/token";
 
 function ip(req: Request) {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
@@ -10,13 +11,12 @@ export async function GET(req: Request, ctx: { params: { token: string } }) {
   const token = (ctx.params.token ?? "").trim();
   if (!token) return NextResponse.json({ error: "missing_token" }, { status: 400 });
 
-  // TODO: burada token_hash hesaplamalısın (sha256 vs)
-  const token_prefix = token.slice(0, 10);
-  const token_hash = token; // <-- prod: hash(token)
+  const token_prefix = tokenPrefix(token);
+  const token_hash = tokenHashSha256(token);
 
   const { data: t, error: tErr } = await supabase
     .from("chart_tokens")
-    .select("id, user_id, chart_id, revoked_at, expires_at, scope")
+    .select("id, user_id, chart_id, revoked_at, expires_at")
     .eq("token_prefix", token_prefix)
     .eq("token_hash", token_hash)
     .maybeSingle();
@@ -26,7 +26,7 @@ export async function GET(req: Request, ctx: { params: { token: string } }) {
   if (t.expires_at && new Date(t.expires_at).getTime() < Date.now())
     return NextResponse.json({ error: "expired" }, { status: 403 });
 
-  // kredi düş (E1)
+  // E1: kredi düş
   const { error: consumeErr } = await supabase.rpc("consume_credits", {
     p_user_id: t.user_id,
     p_meter: "api_call",
@@ -36,9 +36,7 @@ export async function GET(req: Request, ctx: { params: { token: string } }) {
     p_meta: { ip: ip(req), ua: req.headers.get("user-agent") }
   });
 
-  if (consumeErr) {
-    return NextResponse.json({ error: "no_credits" }, { status: 402 });
-  }
+  if (consumeErr) return NextResponse.json({ error: "no_credits" }, { status: 402 });
 
   const { data: chart, error: cErr } = await supabase
     .from("charts")
