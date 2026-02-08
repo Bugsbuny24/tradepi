@@ -1,22 +1,41 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST(req: Request) {
-  const formData = await req.formData();
-  const email = String(formData.get("email"));
-  const password = String(formData.get("password"));
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const origin = url.origin;
+
+  const formData = await request.formData();
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const nextPath = String(formData.get("next") || "/dashboard");
+
+  if (!email || !password) {
+    return NextResponse.redirect(`${origin}/auth/register?error=missing_fields`, { status: 303 });
+  }
+
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      // Email confirmation açıksa bu şart:
+      emailRedirectTo: `${origin}/auth/callback`,
+    },
+  });
 
   if (error) {
-    // Hata varsa URL'ye hata mesajını ekleyip geri fırlat
     return NextResponse.redirect(
-      new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, req.url),
-      { status: 303 } // 303 status kodu yönlendirmeyi zorunlu kılar
+      `${origin}/auth/register?error=${encodeURIComponent(error.message)}`,
+      { status: 303 }
     );
   }
 
-  // BAŞARILI: Dashboard'a uçur
-  return NextResponse.redirect(new URL("/dashboard", req.url), { status: 303 });
+  // Eğer Supabase email confirm istiyorsa session null gelir.
+  if (!data.session) {
+    return NextResponse.redirect(`${origin}/auth/login?checkEmail=1`, { status: 303 });
+  }
+
+  return NextResponse.redirect(`${origin}${nextPath}`, { status: 303 });
 }
