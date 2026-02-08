@@ -15,7 +15,18 @@ export const dynamic = "force-dynamic";
 export default function PiPayPage() {
   const sp = useSearchParams();
   const code = (sp.get("code") ?? "").trim();
-  const returnTo = (sp.get("return") ?? "/dashboard").trim();
+  const rawReturn = (sp.get("return") ?? "/dashboard").trim();
+
+// sadece aynı origin'e izin ver (open-redirect kapat)
+let returnTo = "/dashboard";
+try {
+  if (rawReturn.startsWith("/")) {
+    returnTo = rawReturn;
+  } else {
+    const u = new URL(rawReturn);
+    if (u.origin === window.location.origin) returnTo = u.pathname + u.search;
+  }
+} catch {}
 
   const [sdkReady, setSdkReady] = useState(false);
   const [loading, setLoading] = useState(false);
