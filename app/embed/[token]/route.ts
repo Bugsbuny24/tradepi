@@ -164,4 +164,4 @@ export async function GET(req: Request, { params }: { params: { token: string } 
       "cache-control": "no-store",
     },
   });
-      
+}
