@@ -48,7 +48,7 @@ export async function GET(
     ownerId = tData.user_id;
   }
 
-  // 2) Grafik ve Ayarları Çek
+  // 2) Grafik Verisini Çek
   const { data: chart, error: chartErr } = await admin
     .from("charts")
     .select("*, data_entries(*), embed_settings(*)")
@@ -59,17 +59,17 @@ export async function GET(
     return NextResponse.json({ error: "CHART_NOT_FOUND" }, { status: 404 });
   }
 
-  // 3) Kredi Tüketimi (TypeScript Uyumlu Obje Yapısı)
+  // 3) Kredi Tüketimi - İKİ PARAMETRE: (admin, { veri })
   try {
     const wantsNoWatermark = chart.embed_settings?.remove_watermark || false;
     
-    await consumeCredits({
+    await consumeCredits(admin, {
       userId: ownerId || chart.user_id,
       meter: wantsNoWatermark ? "watermark_off_views_remaining" : "embed_view_remaining",
       amount: 1,
       refType: "chart_view",
       refId: chartId,
-      meta: { token_id: tokenId, ua: req.headers.get("user-agent") }
+      meta: { token_id: tokenId }
     });
     
   } catch (e: any) {
@@ -83,7 +83,7 @@ export async function GET(
     );
   }
 
-  // 4) Analytics Kaydı (Embed Counter)
+  // 4) Analytics Kaydı
   if (tokenId) {
     const { data: existing } = await admin
       .from("embed_counters")
@@ -112,6 +112,5 @@ export async function GET(
     }
   }
 
-  // 5) Başarılı Yanıt
   return NextResponse.json({ ok: true, chart });
 }
