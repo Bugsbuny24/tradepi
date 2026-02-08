@@ -1,123 +1,60 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { consumeCredits } from "@/lib/billing/consume";
+import { createClient } from "@/lib/supabase/server"; // sende nasıl ise bunu uyarlarsın
 
-function isUuid(v: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+function ip(req: Request) {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
 }
 
-function sha256Hex(input: string) {
-  return crypto.createHash("sha256").update(input).digest("hex");
-}
+export async function GET(req: Request, ctx: { params: { token: string } }) {
+  const supabase = await createClient();
+  const token = (ctx.params.token ?? "").trim();
+  if (!token) return NextResponse.json({ error: "missing_token" }, { status: 400 });
 
-export async function GET(req: Request, { params }: { params: { token: string } }) {
-  const admin = createAdminClient();
-  const token = decodeURIComponent(params.token ?? "").trim();
+  // TODO: burada token_hash hesaplamalısın (sha256 vs)
+  const token_prefix = token.slice(0, 10);
+  const token_hash = token; // <-- prod: hash(token)
 
-  if (!token) return NextResponse.json({ error: "TOKEN_REQUIRED" }, { status: 400 });
+  const { data: t, error: tErr } = await supabase
+    .from("chart_tokens")
+    .select("id, user_id, chart_id, revoked_at, expires_at, scope")
+    .eq("token_prefix", token_prefix)
+    .eq("token_hash", token_hash)
+    .maybeSingle();
 
-  let tokenId: string | null = null;
-  let chartId: string | null = null;
-  let ownerId: string | null = null;
+  if (tErr || !t) return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+  if (t.revoked_at) return NextResponse.json({ error: "revoked" }, { status: 403 });
+  if (t.expires_at && new Date(t.expires_at).getTime() < Date.now())
+    return NextResponse.json({ error: "expired" }, { status: 403 });
 
-  // 1) Token çözümleme
-  if (isUuid(token)) {
-    chartId = token;
-  } else {
-    const prefix = token.slice(0, 8);
-    const hash = sha256Hex(token);
-
-    const { data: tData, error: tErr } = await admin
-      .from("chart_tokens")
-      .select("id, chart_id, user_id, revoked_at, expires_at, scope")
-      .eq("token_prefix", prefix)
-      .eq("token_hash", hash)
-      .is("revoked_at", null)
-      .maybeSingle();
-
-    if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 });
-    if (!tData) return NextResponse.json({ error: "INVALID_TOKEN" }, { status: 403 });
-    if (tData.expires_at && new Date(tData.expires_at).getTime() <= Date.now()) {
-      return NextResponse.json({ error: "TOKEN_EXPIRED" }, { status: 403 });
-    }
-
-    // scope kontrol (istersen daha esnek yaparız)
-    if (tData.scope && !["api", "all", "read"].includes(String(tData.scope))) {
-      return NextResponse.json({ error: "TOKEN_SCOPE_FORBIDDEN" }, { status: 403 });
-    }
-
-    tokenId = tData.id;
-    chartId = tData.chart_id;
-    ownerId = tData.user_id;
-  }
-
-  // 2) Chart + data + settings çek
-  const { data: chart, error: chartErr } = await admin
-    .from("charts")
-    .select("*, data_entries(*), embed_settings(*)")
-    .eq("id", chartId)
-    .single();
-
-  if (chartErr || !chart) return NextResponse.json({ error: "CHART_NOT_FOUND" }, { status: 404 });
-
-  ownerId = ownerId ?? chart.user_id;
-
-  // UUID direct kullanıyorsan public şart (sıkı güvenlik)
-  if (isUuid(token)) {
-    const isPublic = Boolean(chart.is_public) || Boolean(chart.embed_settings?.is_public);
-    if (!isPublic) return NextResponse.json({ error: "NOT_PUBLIC" }, { status: 403 });
-  }
-
-  // 3) ✅ API kredisi düş
-  try {
-    await consumeCredits(admin, {
-      userId: ownerId,
-      meter: "api_call_remaining",
-      amount: 1,
-      refType: "api_call",
-      refId: chartId!,
-      meta: { token_id: tokenId },
-    });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "TOPUP_REQUIRED", message: e?.message || "Kredi yetersiz.", meter: "api_call_remaining" },
-      { status: 402 }
-    );
-  }
-
-  // 4) ✅ API analytics
-  if (tokenId) {
-    const { data: existing } = await admin
-      .from("api_counters")
-      .select("call_count")
-      .eq("token_id", tokenId)
-      .maybeSingle();
-
-    if (existing) {
-      await admin
-        .from("api_counters")
-        .update({
-          call_count: (existing.call_count ?? 0) + 1,
-          last_call_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("token_id", tokenId);
-    } else {
-      await admin.from("api_counters").insert({
-        token_id: tokenId,
-        chart_id: chartId,
-        owner_id: ownerId,
-        call_count: 1,
-        last_call_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }
-
-  // 5) SAF JSON
-  return NextResponse.json({
-    ok: true,
-    chart,
+  // kredi düş (E1)
+  const { error: consumeErr } = await supabase.rpc("consume_credits", {
+    p_user_id: t.user_id,
+    p_meter: "api_call",
+    p_units: 1,
+    p_ref_type: "chart",
+    p_ref_id: t.chart_id,
+    p_meta: { ip: ip(req), ua: req.headers.get("user-agent") }
   });
+
+  if (consumeErr) {
+    return NextResponse.json({ error: "no_credits" }, { status: 402 });
+  }
+
+  const { data: chart, error: cErr } = await supabase
+    .from("charts")
+    .select("id, title, chart_type")
+    .eq("id", t.chart_id)
+    .maybeSingle();
+
+  if (cErr || !chart) return NextResponse.json({ error: "chart_not_found" }, { status: 404 });
+
+  const { data: rows, error: rErr } = await supabase
+    .from("data_entries")
+    .select("label, value, sort_order")
+    .eq("chart_id", t.chart_id)
+    .order("sort_order", { ascending: true });
+
+  if (rErr) return NextResponse.json({ error: "data_error" }, { status: 500 });
+
+  return NextResponse.json({ chart, data: rows ?? [] });
 }
