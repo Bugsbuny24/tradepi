@@ -3,16 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { piCompletePayment } from "@/lib/pi/pi-api";
 
-export async function POST(req: Request) {
-  // 1) kullanıcı login mi?
-  const supabaseUser = await createClient();
-  const {
-    data: { user },
-  } = await supabaseUser.auth.getUser();
+function asNum(v: any) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
 
+export async function POST(req: Request) {
+  // user auth
+  const supabase = await createClient();
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 401 });
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // 2) input
+  // inputs
   const body = await req.json().catch(() => ({}));
   const paymentId = String(body.paymentId ?? "").trim();
   const txid = String(body.txid ?? "").trim();
@@ -27,40 +30,37 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // 3) paketi server’dan çek (client fiyatla oynayamasın)
+  // package: server source of truth
   const { data: pkg, error: pkgErr } = await admin
     .from("packages")
-    .select("id,code,title,price_pi,grants,is_active")
+    .select("code,price_pi,is_active")
     .eq("code", package_code)
     .maybeSingle();
 
-  if (pkgErr || !pkg) {
-    return NextResponse.json({ error: "Package not found" }, { status: 400 });
-  }
-  if (!pkg.is_active) {
-    return NextResponse.json({ error: "Package not active" }, { status: 400 });
-  }
+  if (pkgErr || !pkg) return NextResponse.json({ error: "Package not found" }, { status: 400 });
+  if (!pkg.is_active) return NextResponse.json({ error: "Package not active" }, { status: 400 });
+
+  const expectedAmount = asNum(pkg.price_pi);
 
   try {
-    // 4) Pi server “complete” → Pi doğrulaması burada oluyor (resmi akış)
+    // Pi official verify/complete
     const dto = await piCompletePayment(paymentId, txid);
 
-    // 5) amount check (dto yapısı değişebilir; güvenli okumaya çalış)
-    const dtoAmount =
-      Number(dto?.amount ?? dto?.payment?.amount ?? dto?.piResData?.amount ?? 0);
+    // amount check (dto şekli değişebildiği için defensive)
+    const got =
+      asNum(dto?.amount) ||
+      asNum(dto?.payment?.amount) ||
+      asNum(dto?.piResData?.amount);
 
-    const expectedAmount = Number(pkg.price_pi);
-
-    if (!(dtoAmount > 0) || dtoAmount !== expectedAmount) {
+    if (!(got > 0) || got !== expectedAmount) {
       return NextResponse.json(
-        { error: `Amount mismatch. expected=${expectedAmount} got=${dtoAmount}` },
+        { error: `Amount mismatch. expected=${expectedAmount} got=${got}` },
         { status: 400 }
       );
     }
 
-    // 6) DB: intent oluştur (txid unique zaten var → idempotent)
-    // create_purchase_intent RPC senin projede zaten kullanılıyor.
-    const { data: intent_id, error: intentErr } = await admin.rpc(
+    // create intent (senin DB'de txid unique zaten var → idempotent)
+    const { data: intentId, error: intentErr } = await admin.rpc(
       "create_purchase_intent",
       {
         p_package_code: pkg.code,
@@ -70,32 +70,29 @@ export async function POST(req: Request) {
     );
 
     if (intentErr) {
-      // txid unique nedeniyle “zaten işlendi” olabilir.
       const msg = intentErr.message ?? "";
+      // duplicate txid = zaten işlendi
       if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
         return NextResponse.json({ ok: true, already_processed: true });
       }
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    // 7) DB: otomatik approve/grant (approve_purchase_intent RPC)
+    // auto-approve & grant quotas
     const { error: approveErr } = await admin.rpc("approve_purchase_intent", {
-      p_intent_id: String(intent_id),
+      p_intent_id: String(intentId),
       p_note: "auto-approved after Pi complete()",
     });
 
     if (approveErr) {
       return NextResponse.json(
-        { error: approveErr.message ?? "Approve RPC failed" },
+        { error: approveErr.message ?? "approve_purchase_intent failed" },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({ ok: true, intent_id, dto });
+    return NextResponse.json({ ok: true, intent_id: intentId, dto });
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Complete failed" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: e?.message ?? "Complete failed" }, { status: 400 });
   }
 }
