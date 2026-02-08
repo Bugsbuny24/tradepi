@@ -58,18 +58,32 @@ export async function GET(
 
   if (!chart) return NextResponse.json({ error: "CHART_NOT_FOUND" }, { status: 404 });
 
+// ... üst kısımlar aynı ...
+
   // 4) Kredi Tüketimi (Snap-Logic Guard)
   try {
     const wantsNoWatermark = chart.embed_settings?.remove_watermark || false;
-    await consumeCredits(ownerId || chart.user_id, wantsNoWatermark ? "no_watermark" : "normal");
+    
+    // HATA BURADAYDI: Parametreleri obje içinde göndermemiz gerekiyor
+    await consumeCredits({
+      userId: ownerId || chart.user_id,
+      meter: wantsNoWatermark ? "watermark_off_views_remaining" : "embed_view_remaining",
+      amount: 1, // Her izlenmede 1 kredi düşer
+      refType: "chart_view",
+      refId: chartId,
+      meta: { token_id: tokenId }
+    });
+    
   } catch (e: any) {
-    return NextResponse.json({ error: "TOPUP_REQUIRED", message: "Kredi yetersiz." }, { status: 402 });
+    return NextResponse.json(
+      { 
+        error: "TOPUP_REQUIRED", 
+        message: "Kredi yetersiz.",
+        meter: chart.embed_settings?.remove_watermark ? "watermark_off_views_remaining" : "embed_view_remaining"
+      }, 
+      { status: 402 }
+    );
   }
 
-  // 5) Analytics Kaydı (Embed Counter)
-  if (tokenId) {
-    await admin.rpc('increment_embed_view', { t_id: tokenId }); // Veritabanındaki RPC fonksiyonu
-  }
+// ... alt kısımlar aynı ...
 
-  return NextResponse.json({ ok: true, chart });
-}
