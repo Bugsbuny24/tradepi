@@ -1,17 +1,25 @@
 type PiPaymentDTO = any;
 
-function piAuthHeaders() {
+function piHeaders(): Record<string, string> {
   const key = process.env.PI_API_KEY;
   if (!key) throw new Error("Missing PI_API_KEY");
-  // Doc’larda örneklerde authorization: `key ${APIKEY}` geçiyor.
-  // Bazı örneklerde "Key ..." de görülüyor. İkisini de tolere edelim.
+
+  // Pi örneklerinde `authorization: key ...` çok geçiyor.
+  // Bazı ortamlarda `Authorization: Key ...` da kabul görüyor.
   return {
-    // çoğu entegrasyonda işe yarayan:
     Authorization: `Key ${key}`,
-    // bazı örneklerde küçük harf:
     authorization: `key ${key}`,
     "Content-Type": "application/json",
-  } as Record<string, string>;
+  };
+}
+
+async function parseJson(res: Response) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
 }
 
 export async function piApprovePayment(paymentId: string): Promise<PiPaymentDTO> {
@@ -21,22 +29,16 @@ export async function piApprovePayment(paymentId: string): Promise<PiPaymentDTO>
 
   const res = await fetch(url, {
     method: "POST",
-    headers: piAuthHeaders(),
-    body: "null", // doc örneklerinde null/empty
+    headers: piHeaders(),
+    body: "null",
   });
 
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = { raw: text };
-  }
-
+  const json = await parseJson(res);
   if (!res.ok) {
-    throw new Error(json?.error?.message ?? json?.message ?? `Pi approve failed`);
+    throw new Error(
+      json?.error?.message ?? json?.message ?? `Pi approve failed (${res.status})`
+    );
   }
-
   return json;
 }
 
@@ -50,23 +52,15 @@ export async function piCompletePayment(
 
   const res = await fetch(url, {
     method: "POST",
-    headers: piAuthHeaders(),
+    headers: piHeaders(),
     body: JSON.stringify({ txid }),
   });
 
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = { raw: text };
-  }
-
+  const json = await parseJson(res);
   if (!res.ok) {
     throw new Error(
-      json?.error?.message ?? json?.message ?? `Pi complete failed`
+      json?.error?.message ?? json?.message ?? `Pi complete failed (${res.status})`
     );
   }
-
   return json;
 }
