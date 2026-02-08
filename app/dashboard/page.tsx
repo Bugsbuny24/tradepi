@@ -1,6 +1,4 @@
-export default function DashboardPage() {
-  return <div className="p-20 text-white font-black text-4xl">SİSTEME GİRİŞ BAŞARILI! 🚀</div>;
-}
+
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
