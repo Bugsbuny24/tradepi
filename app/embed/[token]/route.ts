@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consumeCredits } from "@/lib/billing/consume";
 import { renderEmbedHtml } from "@/lib/embed/runtime";
+import { tokenPrefix, tokenHashSha256 } from "@/lib/token";
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
-}
-
-function sha256Hex(input: string) {
-  return crypto.createHash("sha256").update(input).digest("hex");
 }
 
 export async function GET(req: Request, { params }: { params: { token: string } }) {
@@ -21,15 +17,16 @@ export async function GET(req: Request, { params }: { params: { token: string } 
   let tokenId: string | null = null;
   let chartId: string | null = null;
   let ownerId: string | null = null;
-  let tokenPrefix: string | null = null;
+  let tokenPref: string | null = null;
 
   // 1) token çöz
   if (isUuid(token)) {
     chartId = token;
-    tokenPrefix = "direct";
+    tokenPref = "direct";
   } else {
-    const prefix = token.slice(0, 8);
-    const hash = sha256Hex(token);
+    // ✅ DB check: token_prefix_len_10 → ilk 10 karakter olmalı
+    const prefix = tokenPrefix(token);
+    const hash = tokenHashSha256(token);
 
     const { data: tok, error: tokErr } = await admin
       .from("chart_tokens")
@@ -41,11 +38,12 @@ export async function GET(req: Request, { params }: { params: { token: string } 
 
     if (tokErr) return NextResponse.json({ error: tokErr.message }, { status: 500 });
     if (!tok) return NextResponse.json({ error: "INVALID_TOKEN" }, { status: 404 });
+
     if (tok.expires_at && new Date(tok.expires_at).getTime() <= Date.now()) {
       return NextResponse.json({ error: "TOKEN_EXPIRED" }, { status: 403 });
     }
 
-    // embed scope kontrol (istersen daha esnek)
+    // scope kontrol
     if (tok.scope && !["embed", "all", "read"].includes(String(tok.scope))) {
       return NextResponse.json({ error: "TOKEN_SCOPE_FORBIDDEN" }, { status: 403 });
     }
@@ -53,7 +51,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
     tokenId = tok.id;
     chartId = tok.chart_id;
     ownerId = tok.user_id;
-    tokenPrefix = tok.token_prefix;
+    tokenPref = tok.token_prefix;
   }
 
   // 2) chart + settings + entries çek
@@ -98,34 +96,31 @@ export async function GET(req: Request, { params }: { params: { token: string } 
       .eq("meter", "branding_remove")
       .maybeSingle();
 
-    if (!ent || (ent.amount ?? 0) <= 0) {
-      wantsNoWatermark = false;
-    }
+    if (!ent || (ent.amount ?? 0) <= 0) wantsNoWatermark = false;
   }
 
-  // 4) ✅ embed kredisi düş
+  // 4) ✅ embed view kredisi düş (bel kemiği)
   try {
     await consumeCredits(admin, {
       userId: ownerId!,
-      meter: wantsNoWatermark ? "watermark_off_views_remaining" : "embed_view_remaining",
-      amount: 1,
+      meter: "embed_view",
+      units: 1,
       refType: "embed_view",
       refId: chart.id,
-      meta: { token_id: tokenId, token_prefix: tokenPrefix, mode: wantsNoWatermark ? "no_watermark" : "normal" },
+      meta: {
+        token_id: tokenId,
+        token_prefix: tokenPref,
+        mode: wantsNoWatermark ? "no_watermark" : "normal",
+      },
     });
   } catch (e: any) {
-    // embed iframe içinde de anlaşılır olsun diye html yerine json dönmek yerine 402 json döndürüyoruz
     return NextResponse.json(
-      {
-        error: "TOPUP_REQUIRED",
-        message: e?.message ?? "Insufficient credits",
-        meter: wantsNoWatermark ? "watermark_off_views_remaining" : "embed_view_remaining",
-      },
+      { error: "NO_CREDITS", message: "Not enough credits for embed view" },
       { status: 402 }
     );
   }
 
-  // 5) embed analytics
+  // 5) embed analytics (counter)
   if (tokenId) {
     const { data: existing } = await admin
       .from("embed_counters")
@@ -154,18 +149,19 @@ export async function GET(req: Request, { params }: { params: { token: string } 
     }
   }
 
-  // 6) HTML üret
+  // 6) HTML render
   const html = renderEmbedHtml({
-    chart: { id: chart.id, title: chart.title, chart_type: chart.chart_type },
-    entries: (entries ?? []).map((e: any) => ({ label: e.label, value: Number(e.value) })),
+    chart,
     settings: settings ?? null,
+    entries: entries ?? [],
     watermark: !wantsNoWatermark,
   });
 
   return new NextResponse(html, {
+    status: 200,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
     },
   });
-}
+      
