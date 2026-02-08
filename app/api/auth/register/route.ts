@@ -10,8 +10,9 @@ export async function POST(req: Request) {
   const { error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
-    return NextResponse.redirect(new URL("/auth/register?error=1", req.url));
+    return NextResponse.redirect(new URL("/auth/register?error=signup_failed", req.url), { status: 303 });
   }
 
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+  // Kayıt başarılıysa direkt dashboard'a
+  return NextResponse.redirect(new URL("/dashboard", req.url), { status: 303 });
 }
