@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -8,49 +8,78 @@ declare global {
   }
 }
 
-const SCOPES = ["payments"];
+const sandbox = process.env.NEXT_PUBLIC_PI_SANDBOX === "true";
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export default function TestPiPaymentButton() {
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const initedRef = useRef(false);
 
-  // Testnet için true, mainnet için false
-  const sandbox = process.env.NEXT_PUBLIC_PI_SANDBOX === "true";
+  useEffect(() => {
+    const Pi = window.Pi;
+    if (!Pi) {
+      setStatus("Pi SDK yok. Bu sayfayı Pi Browser içinde UYGULAMA olarak açmalısın (Develop > App > Open).");
+      return;
+    }
+    try {
+      Pi.init({ version: "2.0", sandbox });
+      initedRef.current = true;
+      setStatus(`Pi SDK hazır. Sandbox: ${sandbox}`);
+    } catch (e: any) {
+      setStatus(`Pi.init hata: ${e?.message ?? String(e)}`);
+    }
+  }, []);
 
-  const run = async () => {
+  const runTestPayment = async () => {
     try {
       setLoading(true);
-      setStatus("Pi SDK kontrol ediliyor...");
+      setStatus("Pi authorize (payments) isteniyor...");
 
       const Pi = window.Pi;
       if (!Pi) {
         setStatus("Pi SDK bulunamadı. Pi Browser içinde mi açtın?");
         return;
       }
+      if (!initedRef.current) {
+        Pi.init({ version: "2.0", sandbox });
+        initedRef.current = true;
+      }
 
-      // init idempotent (defalarca çağrılabilir)
-      Pi.init({ version: "2.0", sandbox });
+      // 👇 Kritik: auth ekranı gelmiyorsa 15sn sonra net hata verelim
+      const authPromise = Pi.authenticate(
+        ["payments", "username"],
+        (payment: any) => {
+          console.log("incomplete payment found:", payment);
+        }
+      );
 
-      setStatus('Pi authorize (payments) isteniyor...');
+      const auth = await Promise.race([
+        authPromise,
+        (async () => {
+          await wait(15000);
+          throw new Error(
+            "Authorize ekranı gelmedi. %99: Uygulamayı Develop>App>Open ile açmıyorsun ya da www/non-www redirect var (origin mismatch)."
+          );
+        })(),
+      ]);
 
-      // payments scope'u ALMADAN createPayment olmaz
-      await Pi.authenticate(SCOPES, (payment: any) => {
-        // Yarım kalan ödeme yakalanırsa buraya düşer
-        console.log("incomplete payment:", payment);
-      });
+      console.log("auth ok:", auth);
 
-      setStatus("Ödeme başlatılıyor...");
+      setStatus("Ödeme oluşturuluyor...");
 
       Pi.createPayment(
         {
-          amount: 1, // Step-10 için test miktarı (istersen 0.1 yap)
-          memo: "TradePi Studio - Step10 Test Payment",
-          metadata: { purpose: "step10_test" },
+          amount: 0.01,
+          memo: "Pi Step-10 Test Payment",
+          metadata: { test: true, ts: Date.now() },
         },
         {
           onReadyForServerApproval: async (paymentId: string) => {
-            setStatus("Sunucu onayı bekleniyor...");
-
+            setStatus("Sunucu onayı bekleniyor (approve)...");
             const res = await fetch("/api/pi/approve", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -60,13 +89,11 @@ export default function TestPiPaymentButton() {
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json?.error || "approve failed");
 
-            setStatus("Onaylandı. Cüzdanda tamamla...");
-            return json;
+            setStatus("Onaylandı. Cüzdanı açıp işlemi tamamla...");
           },
 
           onReadyForServerCompletion: async (paymentId: string, txid: string) => {
-            setStatus("Tamamlama yapılıyor...");
-
+            setStatus("Tamamlama (complete) gönderiliyor...");
             const res = await fetch("/api/pi/complete", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -76,36 +103,40 @@ export default function TestPiPaymentButton() {
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json?.error || "complete failed");
 
-            setStatus("✅ Ödeme tamamlandı");
-            return json;
+            setStatus("✅ Ödeme tamamlandı!");
           },
 
-          onCancel: () => setStatus("İptal edildi"),
+          onCancel: (paymentId: string) => {
+            console.log("cancelled:", paymentId);
+            setStatus("İptal edildi.");
+          },
 
-          onError: (error: any) => {
-            console.error(error);
+          onError: (error: any, payment: any) => {
+            console.error("Pi error:", error, payment);
             setStatus(error?.message || "Ödeme hatası");
           },
         }
       );
     } catch (e: any) {
       console.error(e);
-      setStatus(e?.message || "Hata");
+      setStatus(e?.message ?? "Hata");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <button onClick={run} disabled={loading}>
+    <div style={{ padding: 16 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Pi Step-10 Test Payment</h1>
+      <p>{status || "Hazır"}</p>
+
+      <button onClick={runTestPayment} disabled={loading} style={{ padding: 10, border: "1px solid #999" }}>
         {loading ? "..." : "Test Payment"}
       </button>
 
-      <div style={{ marginTop: 12 }}>{status}</div>
-
-      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-        Sandbox: {String(sandbox)}
+      <div style={{ marginTop: 10, opacity: 0.7 }}>
+        <div>Sandbox: {String(sandbox)}</div>
+        <div>Origin: {typeof window !== "undefined" ? window.location.origin : ""}</div>
       </div>
     </div>
   );
