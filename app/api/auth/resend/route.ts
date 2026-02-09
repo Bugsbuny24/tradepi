@@ -1,47 +1,23 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
+export async function POST(req: Request) {
+  const formData = await req.formData();
+  const email = String(formData.get("email") || "").trim();
+  const next = String(formData.get("next") || "/dashboard");
 
-export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const email = String(formData.get("email") ?? "").trim();
-  const next = String(formData.get("next") ?? "/dashboard");
+  const url = new URL(req.url);
+  const origin = url.origin;
 
   if (!email) {
     return NextResponse.redirect(
-      new URL(
-        `/auth/login?error=missing_fields&next=${encodeURIComponent(next)}`,
-        request.url
-      )
+      `${origin}/auth/login?error=missing_email&next=${encodeURIComponent(next)}`,
+      { status: 303 }
     );
   }
 
-  const redirectTo = new URL("/auth/callback", request.url).toString();
-  const redirectResponse = NextResponse.redirect(
-    new URL(
-      `/auth/login?checkEmail=1&next=${encodeURIComponent(next)}`,
-      request.url
-    )
-  );
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            redirectResponse.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
+  const supabase = await createClient();
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { error } = await supabase.auth.resend({
     type: "signup",
@@ -51,12 +27,13 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL(
-        `/auth/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
-        request.url
-      )
+      `${origin}/auth/login?error=${encodeURIComponent(error.code ?? "resend_failed")}&next=${encodeURIComponent(next)}`,
+      { status: 303 }
     );
   }
 
-  return redirectResponse;
+  return NextResponse.redirect(
+    `${origin}/auth/login?checkEmail=1&next=${encodeURIComponent(next)}`,
+    { status: 303 }
+  );
 }
