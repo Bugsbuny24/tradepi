@@ -1,98 +1,40 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { piCompletePayment } from "@/lib/pi/pi-api";
 
-function asNum(v: any) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
+export const runtime = "nodejs";
+
+const PI_API_BASE = "https://api.minepi.com/v2";
 
 export async function POST(req: Request) {
-  // user auth
-  const supabase = await createClient();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 401 });
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // inputs
-  const body = await req.json().catch(() => ({}));
-  const paymentId = String(body.paymentId ?? "").trim();
-  const txid = String(body.txid ?? "").trim();
-  const package_code = String(body.package_code ?? "").trim();
-
-  if (!paymentId || !txid || !package_code) {
-    return NextResponse.json(
-      { error: "Missing paymentId/txid/package_code" },
-      { status: 400 }
-    );
-  }
-
-  const admin = createAdminClient();
-
-  // package: server source of truth
-  const { data: pkg, error: pkgErr } = await admin
-    .from("packages")
-    .select("code,price_pi,is_active")
-    .eq("code", package_code)
-    .maybeSingle();
-
-  if (pkgErr || !pkg) return NextResponse.json({ error: "Package not found" }, { status: 400 });
-  if (!pkg.is_active) return NextResponse.json({ error: "Package not active" }, { status: 400 });
-
-  const expectedAmount = asNum(pkg.price_pi);
-
   try {
-    // Pi official verify/complete
-    const dto = await piCompletePayment(paymentId, txid);
-
-    // amount check (dto şekli değişebildiği için defensive)
-    const got =
-      asNum(dto?.amount) ||
-      asNum(dto?.payment?.amount) ||
-      asNum(dto?.piResData?.amount);
-
-    if (!(got > 0) || got !== expectedAmount) {
-      return NextResponse.json(
-        { error: `Amount mismatch. expected=${expectedAmount} got=${got}` },
-        { status: 400 }
-      );
+    const { paymentId, txid } = await req.json();
+    if (!paymentId || !txid) {
+      return NextResponse.json({ error: "paymentId & txid required" }, { status: 400 });
     }
 
-    // create intent (senin DB'de txid unique zaten var → idempotent)
-    const { data: intentId, error: intentErr } = await admin.rpc(
-      "create_purchase_intent",
-      {
-        p_package_code: pkg.code,
-        p_amount_pi: expectedAmount,
-        p_txid: txid,
-      }
-    );
-
-    if (intentErr) {
-      const msg = intentErr.message ?? "";
-      // duplicate txid = zaten işlendi
-      if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
-        return NextResponse.json({ ok: true, already_processed: true });
-      }
-      return NextResponse.json({ error: msg }, { status: 400 });
+    const key = process.env.PI_API_KEY;
+    if (!key) {
+      return NextResponse.json({ error: "PI_API_KEY missing" }, { status: 500 });
     }
 
-    // auto-approve & grant quotas
-    const { error: approveErr } = await admin.rpc("approve_purchase_intent", {
-      p_intent_id: String(intentId),
-      p_note: "auto-approved after Pi complete()",
+    const r = await fetch(`${PI_API_BASE}/payments/${paymentId}/complete`, {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ txid }),
     });
 
-    if (approveErr) {
+    const text = await r.text();
+    if (!r.ok) {
       return NextResponse.json(
-        { error: approveErr.message ?? "approve_purchase_intent failed" },
-        { status: 400 }
+        { error: `Pi complete failed: ${r.status} ${text}` },
+        { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, intent_id: intentId, dto });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Complete failed" }, { status: 400 });
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
