@@ -1,7 +1,10 @@
-import { redirect } from "next/navigation";
+import TestPiPaymentButton from "./TestPiPaymentButton";
 
-// Minimal, safe default: send users straight to the Designer.
-// This avoids build failures if unfinished dashboard UI code is present.
 export default function DashboardPage() {
-  redirect("/dashboard/designer");
+  return (
+    <div className="space-y-6">
+      <TestPiPaymentButton />
+      {/* diğer dashboard içerikleri */}
+    </div>
+  );
 }
