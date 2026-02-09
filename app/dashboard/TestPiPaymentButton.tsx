@@ -1,103 +1,96 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
-declare global {
-  interface Window {
-    Pi?: any;
-  }
-}
-
-async function postJSON<T = any>(url: string, body: any): Promise<T> {
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  const text = await r.text();
-  let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    // ignore
-  }
-
-  if (!r.ok) {
-    throw new Error(json?.error || text || `HTTP ${r.status}`);
-  }
-  return json as T;
-}
+type PiSdk = {
+  init: (opts: { version: string; sandbox?: boolean }) => void;
+  authenticate: (
+    scopes: string[],
+    onIncompletePaymentFound?: (payment: any) => void
+  ) => Promise<any>;
+  createPayment: (
+    paymentData: { amount: number; memo: string; metadata?: any },
+    callbacks: {
+      onReadyForServerApproval: (paymentId: string) => void | Promise<void>;
+      onReadyForServerCompletion: (paymentId: string, txid: string) => void | Promise<void>;
+      onCancel: (paymentId: string) => void;
+      onError: (error: any, payment?: any) => void;
+    }
+  ) => void;
+};
 
 export default function TestPiPaymentButton() {
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<string>("");
 
-  const runTestPayment = useCallback(async () => {
+  const sandbox = process.env.NEXT_PUBLIC_PI_SANDBOX === "true";
+
+  const runTestPayment = async () => {
     try {
       setStatus("Pi SDK kontrol ediliyor...");
 
-      const Pi = window.Pi;
+      const Pi = (window as any).Pi as PiSdk | undefined;
       if (!Pi) {
-        setStatus("Pi SDK yok. Pi Browser içinde mi açtın?");
+        setStatus("Pi SDK bulunamadı. Pi Browser içinde mi açtın?");
         return;
       }
 
-      // init (idempotent)
-      Pi.init({ version: "2.0", sandbox: true });
+      // 1) Init
+      Pi.init({ version: "2.0", sandbox });
 
+      // 2) payments scope al (bunu almadan ödeme başlatamazsın)
       setStatus("Pi authorize (payments) isteniyor...");
+      await Pi.authenticate(["payments"], (payment: any) => {
+        console.log("incomplete payment found:", payment);
+      });
 
-      // ✅ BUNU YAPMADAN createPayment ÇAĞIRMA!
-      await Pi.authenticate(
-        ["payments"],
-        (incompletePayment: any) => {
-          console.log("Incomplete payment found:", incompletePayment);
-        }
-      );
-
-      setStatus("Payment oluşturuluyor...");
-
+      // 3) Ödeme başlat
+      setStatus("Ödeme başlatılıyor...");
       Pi.createPayment(
         {
-          amount: 1,
-          memo: "Step-10 Test Payment",
-          metadata: { purpose: "step10_test" },
+          amount: 0.01,
+          memo: "TradePi Studio - Step10 Test Payment",
+          metadata: { type: "STEP10_TEST" },
         },
         {
           onReadyForServerApproval: async (paymentId: string) => {
-            setStatus("Server approval...");
-            await postJSON("/api/pi/approve", { paymentId });
-            setStatus("Approved ✅ (Pi ekranı devam edecek)");
+            setStatus(`Server approval... (${paymentId})`);
+            const res = await fetch("/api/pi/approve", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            setStatus("Approved. Completion bekleniyor...");
           },
-
           onReadyForServerCompletion: async (paymentId: string, txid: string) => {
-            setStatus("Server completion...");
-            await postJSON("/api/pi/complete", { paymentId, txid });
-            setStatus("Completed ✅ Step-10 OK");
+            setStatus(`Server completion... (${paymentId})`);
+            const res = await fetch("/api/pi/complete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId, txid }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            setStatus(`Tamam! txid=${txid}`);
           },
-
-          onCancel: (paymentId?: string) => {
-            setStatus(`İptal edildi${paymentId ? ` (${paymentId})` : ""}`);
+          onCancel: (paymentId: string) => {
+            setStatus(`İptal edildi (${paymentId})`);
           },
-
-          onError: (error: any, paymentId?: string) => {
-            setStatus(
-              `Hata: ${error?.message || String(error)}${
-                paymentId ? ` (${paymentId})` : ""
-              }`
-            );
+          onError: (error: any, payment?: any) => {
+            console.error("Pi payment error:", error, payment);
+            setStatus(`Hata: ${error?.message ?? String(error)}`);
           },
         }
       );
     } catch (e: any) {
-      setStatus(`Hata: ${e?.message || String(e)}`);
+      console.error(e);
+      setStatus(`Hata: ${e?.message ?? String(e)}`);
     }
-  }, []);
+  };
 
   return (
     <div style={{ padding: 16 }}>
-      <h3>Pi Step-10 Test Payment</h3>
-      {status && <p>{status}</p>}
+      <h2>Pi Step-10 Test Payment</h2>
+      <p>{status}</p>
       <button onClick={runTestPayment}>Test Payment</button>
     </div>
   );
