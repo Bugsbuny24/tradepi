@@ -1,51 +1,34 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
+export async function POST(req: Request) {
+  const formData = await req.formData();
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const next = String(formData.get("next") || "/dashboard");
 
-export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/dashboard");
+  const url = new URL(req.url);
+  const origin = url.origin;
 
   if (!email || !password) {
     return NextResponse.redirect(
-      new URL("/auth/login?error=missing_fields", request.url)
+      `${origin}/auth/login?error=missing_fields&next=${encodeURIComponent(next)}`,
+      { status: 303 }
     );
   }
 
-  // We'll redirect in all cases; set cookies on this response.
-  const redirectResponse = NextResponse.redirect(new URL(next, request.url));
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            redirectResponse.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
+  const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return NextResponse.redirect(
-      new URL(
-        `/auth/login?error=${encodeURIComponent(error.message)}`,
-        request.url
-      )
+      `${origin}/auth/login?error=${encodeURIComponent(error.code ?? "login_failed")}&next=${encodeURIComponent(next)}`,
+      { status: 303 }
     );
   }
 
-  return redirectResponse;
+  return NextResponse.redirect(`${origin}${next.startsWith("/") ? next : "/dashboard"}`, {
+    status: 303,
+  });
 }
