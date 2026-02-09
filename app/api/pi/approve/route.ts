@@ -1,22 +1,39 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { piApprovePayment } from "@/lib/pi/pi-api";
+
+export const runtime = "nodejs"; // Edge değil, Node olsun
+
+const PI_API_BASE = "https://api.minepi.com/v2";
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-
-  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 401 });
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await req.json().catch(() => ({}));
-  const paymentId = String(body.paymentId ?? "").trim();
-  if (!paymentId) return NextResponse.json({ error: "Missing paymentId" }, { status: 400 });
-
   try {
-    const dto = await piApprovePayment(paymentId);
-    return NextResponse.json({ ok: true, dto });
+    const { paymentId } = await req.json();
+    if (!paymentId) {
+      return NextResponse.json({ error: "paymentId required" }, { status: 400 });
+    }
+
+    const key = process.env.PI_API_KEY;
+    if (!key) {
+      return NextResponse.json({ error: "PI_API_KEY missing" }, { status: 500 });
+    }
+
+    const r = await fetch(`${PI_API_BASE}/payments/${paymentId}/approve`, {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${key}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const text = await r.text();
+    if (!r.ok) {
+      return NextResponse.json(
+        { error: `Pi approve failed: ${r.status} ${text}` },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Approve failed" }, { status: 400 });
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
