@@ -1,20 +1,17 @@
-// app/pi/pay/page.tsx
-import { Suspense } from "react";
 import PiPayClient from "./pi-pay-client";
 
-export const dynamic = "force-dynamic";
-
-export default function PiPayPage({
+export default function Page({
   searchParams,
 }: {
-  searchParams: { code?: string; return?: string };
+  searchParams?: { code?: string; rawReturn?: string };
 }) {
-  const code = (searchParams.code ?? "").trim();
-  const rawReturn = (searchParams.return ?? "/dashboard").trim();
+  const code = searchParams?.code || "";
+  const rawReturn = searchParams?.rawReturn;
 
   return (
-    <Suspense fallback={<div className="p-6">Loading…</div>}>
+    <div className="p-6 space-y-4">
+      <h1 className="text-xl font-bold">Pi Payment</h1>
       <PiPayClient code={code} rawReturn={rawReturn} />
-    </Suspense>
+    </div>
   );
 }
