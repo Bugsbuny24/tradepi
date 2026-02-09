@@ -12,7 +12,10 @@ type PiSdk = {
     paymentData: { amount: number; memo: string; metadata?: any },
     callbacks: {
       onReadyForServerApproval: (paymentId: string) => void | Promise<void>;
-      onReadyForServerCompletion: (paymentId: string, txid: string) => void | Promise<void>;
+      onReadyForServerCompletion: (
+        paymentId: string,
+        txid: string
+      ) => void | Promise<void>;
       onCancel: (paymentId: string) => void;
       onError: (error: any, payment?: any) => void;
     }
@@ -25,22 +28,32 @@ declare global {
   }
 }
 
-export default function PiPayClient({ code }: { code: string }) {
+type Props = {
+  code: string;
+  rawReturn?: string; // ✅ opsiyonel (TS patlamasın diye)
+};
+
+export default function PiPayClient({ code, rawReturn }: Props) {
   const [status, setStatus] = useState<string>("");
   const [packageInfo, setPackageInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const sandbox = process.env.NEXT_PUBLIC_PI_SANDBOX === "true";
   const safeCode = useMemo(() => (code || "").toUpperCase(), [code]);
 
+  // Paketi serverdan çek
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
         setStatus("Paket okunuyor...");
-        const res = await fetch(`/api/pi/package?code=${encodeURIComponent(safeCode)}`);
-        const json = await res.json();
+        const res = await fetch(
+          `/api/pi/package?code=${encodeURIComponent(safeCode)}`
+        );
+        const json = await res.json().catch(() => ({}));
         if (cancelled) return;
+
         if (!res.ok) throw new Error(json?.error || "Paket okunamadı");
         setPackageInfo(json);
         setStatus("");
@@ -49,6 +62,7 @@ export default function PiPayClient({ code }: { code: string }) {
         setStatus(e?.message || "Hata");
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -68,7 +82,10 @@ export default function PiPayClient({ code }: { code: string }) {
       Pi.init({ version: "2.0", sandbox });
 
       setStatus("Pi authorize (payments) isteniyor...");
+
+      // payments scope al
       await Pi.authenticate(["payments"], (payment: any) => {
+        // incomplete payment varsa burada yakalanır
         console.log("incomplete payment found:", payment);
       });
 
@@ -98,6 +115,7 @@ export default function PiPayClient({ code }: { code: string }) {
             if (!res.ok) throw new Error(json?.error || "approve failed");
             setStatus("Onaylandı, tamamlanıyor...");
           },
+
           onReadyForServerCompletion: async (paymentId: string, txid: string) => {
             setStatus("Ödeme tamamlanıyor...");
             const res = await fetch("/api/pi/complete", {
@@ -107,12 +125,14 @@ export default function PiPayClient({ code }: { code: string }) {
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json?.error || "complete failed");
-            setStatus("✅ Ödeme tamamlandı");
+            setStatus("✅ Ödeme tamamlandı!");
           },
+
           onCancel: (paymentId: string) => {
             console.log("cancelled:", paymentId);
             setStatus("İptal edildi");
           },
+
           onError: (error: any, payment?: any) => {
             console.error("pi error:", error, payment);
             setStatus(error?.message || "Ödeme hatası");
@@ -131,7 +151,14 @@ export default function PiPayClient({ code }: { code: string }) {
     <div className="space-y-3">
       <div className="rounded-md border p-3 text-sm">
         <div className="font-semibold">Paket: {safeCode}</div>
-        <div>Pi: {packageInfo?.price_pi ?? "..."}</div>
+        <div>
+          Pi: {packageInfo?.price_pi ? packageInfo.price_pi : "--"}
+        </div>
+        {rawReturn ? (
+          <pre className="mt-2 whitespace-pre-wrap text-xs opacity-70">
+            {rawReturn}
+          </pre>
+        ) : null}
       </div>
 
       <button
@@ -145,4 +172,4 @@ export default function PiPayClient({ code }: { code: string }) {
       {status ? <div className="text-sm text-gray-700">{status}</div> : null}
     </div>
   );
-      }
+}
