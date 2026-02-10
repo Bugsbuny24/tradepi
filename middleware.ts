@@ -1,15 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// V3: Strongly typed cookie plumbing for Supabase SSR + Next.js Middleware
-type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
-
 export async function middleware(request: NextRequest) {
-  // IMPORTANT: response must be mutable inside setAll
-  // NextResponse.next() only supports a lightweight request init (like headers).
-  // Passing the full NextRequest can crash on Vercel with MIDDLEWARE_INVOCATION_FAILED.
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  // 1. Başlangıç yanıtını oluştur
+  let response = NextResponse.next({
+    request: { headers: request.headers },
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,22 +15,35 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: CookieToSet[]) {
-          // In middleware, request.cookies is not safely mutable across runtimes.
-          // Only persist cookies on the outgoing response.
-          response = NextResponse.next({ request: { headers: request.headers } });
-
-          // And persist cookies on the outgoing response
+        setAll(cookiesToSet) {
+          // Çerezleri hem isteğe (request) hem yanıta (response) mühürle
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+            request.cookies.set(name, value); // Middleware içi kullanım için
+            response.cookies.set(name, value, {
+              ...options,
+              sameSite: "lax", // Pi Browser için en stabil ayar
+              secure: true,
+              path: "/",
+            });
           });
         },
       },
     }
   );
 
-  // Touch auth session so Supabase can refresh tokens if needed
-  await supabase.auth.getUser();
+  // Oturumu kontrol et
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 2. Pi Browser Yönlendirme Koruması
+  // Eğer kullanıcı giriş yapmışsa ve /auth sayfalarındaysa dashboard'a at
+  if (user && request.nextUrl.pathname.startsWith("/auth")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Eğer kullanıcı giriş yapmamışsa ve korumalı sayfaya gidiyorsa login'e at
+  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
 
   return response;
 }
