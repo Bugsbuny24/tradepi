@@ -64,3 +64,7 @@ export async function piCompletePayment(
   }
   return json;
 }
+export async function cancelPayment(paymentId: string) {
+  // Pi Platform: POST /v2/payments/{paymentId}/cancel
+  return piFetch(`/payments/${paymentId}/cancel`, { method: "POST" });
+}
