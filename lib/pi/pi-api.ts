@@ -1,62 +1,30 @@
-import "server-only";
+const PI_PLATFORM_API_BASE = process.env.PI_PLATFORM_API_BASE || "https://api.minepi.com/v2";
+const PI_API_KEY = process.env.PI_API_KEY;
 
-/**
- * Pi Platform Server API helpers.
- *
- * Env:
- *  - PI_API_KEY: your Pi Platform API key (App > API Key)
- *  - PI_API_BASE (optional): defaults to https://api.minepi.com
- */
-const PI_API_BASE = process.env.PI_API_BASE || "https://api.minepi.com";
-const PI_API_KEY = process.env.PI_API_KEY || "";
-
-// --- Types (minimal, enough for our flow) ---
-export type PiPaymentDTO = {
-  identifier: string;
-  user_uid?: string;
-  amount?: number;
-  memo?: string;
-  metadata?: any;
-  to_address?: string;
-  from_address?: string;
-  created_at?: string;
-  status?: any;
-  transaction?: any;
-};
-
-// Accept "body: any" but keep the rest of RequestInit strict.
-type PiRequestInit = Omit<RequestInit, "body"> & { body?: any };
-
-function isBodyInit(v: any): v is BodyInit {
-  return (
-    typeof v === "string" ||
-    (typeof Blob !== "undefined" && v instanceof Blob) ||
-    (typeof ArrayBuffer !== "undefined" && v instanceof ArrayBuffer) ||
-    (typeof FormData !== "undefined" && v instanceof FormData) ||
-    (typeof URLSearchParams !== "undefined" && v instanceof URLSearchParams) ||
-    (typeof ReadableStream !== "undefined" && v instanceof ReadableStream)
-  );
+if (!PI_API_KEY) {
+  console.warn("PI_API_KEY is not set. Pi server calls will fail.");
 }
 
-async function piFetch<T>(path: string, init: PiRequestInit = {}): Promise<T> {
-  if (!PI_API_KEY) throw new Error("PI_API_KEY missing");
+type PiApiError = {
+  error?: string;
+  message?: string;
+};
 
-  const url = `${PI_API_BASE}/v2${path}`;
+async function piFetch<T = any>(
+  path: string,
+  init?: RequestInit & { body?: any }
+): Promise<T> {
+  const url = `${PI_PLATFORM_API_BASE}${path}`;
 
-  const headers = new Headers(init.headers || {});
-  headers.set("Authorization", `Key ${PI_API_KEY}`);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    // Pi Platform expects: Authorization: Key <API_KEY>
+    Authorization: `Key ${PI_API_KEY || ""}`,
+    ...(init?.headers as any),
+  };
 
-  let body: BodyInit | undefined = undefined;
-
-  if (init.body !== undefined && init.body !== null) {
-    if (isBodyInit(init.body)) {
-      body = init.body;
-    } else {
-      // assume JSON
-      headers.set("Content-Type", headers.get("Content-Type") || "application/json");
-      body = JSON.stringify(init.body);
-    }
-  }
+  const body =
+    init?.body && typeof init.body === "object" ? JSON.stringify(init.body) : init?.body;
 
   const res = await fetch(url, {
     ...init,
@@ -64,54 +32,33 @@ async function piFetch<T>(path: string, init: PiRequestInit = {}): Promise<T> {
     body,
   });
 
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = text;
-  }
+  const json = (await res.json().catch(() => ({}))) as any;
 
   if (!res.ok) {
-    const msg =
-      (json && (json.error || json.message)) ||
-      `Pi API error (${res.status})`;
-    throw new Error(msg);
+    const err = json as PiApiError;
+    throw new Error(err?.error || err?.message || `Pi API error: ${res.status}`);
   }
 
   return json as T;
 }
 
-/**
- * Approve payment so user can open wallet and proceed.
- * POST /v2/payments/{paymentId}/approve
- */
 export async function piApprovePayment(paymentId: string) {
-  return piFetch<PiPaymentDTO>(`/payments/${encodeURIComponent(paymentId)}/approve`, {
-    method: "POST",
-  });
+  // POST /v2/payments/{paymentId}/approve
+  return piFetch(`/payments/${encodeURIComponent(paymentId)}/approve`, { method: "POST" });
 }
 
-/**
- * Complete payment after user signs and we get txid.
- * POST /v2/payments/{paymentId}/complete
- */
 export async function piCompletePayment(paymentId: string, txid: string) {
-  return piFetch<PiPaymentDTO>(`/payments/${encodeURIComponent(paymentId)}/complete`, {
+  // POST /v2/payments/{paymentId}/complete
+  return piFetch(`/payments/${encodeURIComponent(paymentId)}/complete`, {
     method: "POST",
     body: { txid },
   });
 }
 
-/**
- * Cancel payment.
- * POST /v2/payments/{paymentId}/cancel
- */
 export async function piCancelPayment(paymentId: string) {
-  return piFetch<any>(`/payments/${encodeURIComponent(paymentId)}/cancel`, {
-    method: "POST",
-  });
+  // POST /v2/payments/{paymentId}/cancel
+  return piFetch(`/payments/${encodeURIComponent(paymentId)}/cancel`, { method: "POST" });
 }
 
-// Backwards-compatible alias (route import'un patlamasın diye)
+// Alias (some routes may import this name)
 export const cancelPayment = piCancelPayment;
