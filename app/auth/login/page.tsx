@@ -1,21 +1,12 @@
-
 "use client";
+
 export const dynamic = "force-dynamic";
+
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const nextPath = useMemo(() => {
-    const n = searchParams.get("next");
-    // Güvenlik: sadece site içi path kabul edelim
-    if (!n) return "/dashboard";
-    if (n.startsWith("http://") || n.startsWith("https://")) return "/dashboard";
-    if (!n.startsWith("/")) return "/dashboard";
-    return n;
-  }, [searchParams]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,7 +22,7 @@ export default function LoginPage() {
       const formData = new FormData();
       formData.append("email", email.trim().toLowerCase());
       formData.append("password", password);
-      formData.append("next", nextPath);
+      formData.append("next", "/dashboard");
 
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -39,7 +30,6 @@ export default function LoginPage() {
         credentials: "include",
       });
 
-      // JSON yerine HTML/redirect gelirse patlamasın diye:
       const text = await res.text();
       let data: any = null;
 
@@ -57,8 +47,7 @@ export default function LoginPage() {
         return;
       }
 
-      const go = typeof data?.next === "string" ? data.next : nextPath;
-      router.push(go);
+      router.push("/dashboard");
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err?.message || "Beklenmeyen hata oluştu.");
@@ -148,12 +137,9 @@ export default function LoginPage() {
         </button>
 
         <div style={{ marginTop: 6, opacity: 0.85 }}>
-          Hesabın yok mu?{" "}
-          <a href={`/auth/signup?next=${encodeURIComponent(nextPath)}`}>
-            Kayıt ol
-          </a>
+          Hesabın yok mu? <a href="/auth/signup">Kayıt ol</a>
         </div>
       </form>
     </div>
   );
-            }
+}
