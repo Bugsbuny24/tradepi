@@ -1,145 +1,61 @@
-"use client";
+"use client"; // Next.js istemci bileşeni olduğunu belirtir
 
-export const dynamic = "force-dynamic";
+import { useEffect } from "react";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+export default function PiLogin() {
+  useEffect(() => {
+    // Sayfa yüklendiğinde Pi SDK'yı başlatır
+    const initPi = async () => {
+      if (typeof window !== "undefined" && (window as any).Pi) {
+        try {
+          await (window as any).Pi.init({ 
+            version: "2.0", 
+            sandbox: true // Vercel'deki env ayarın gelene kadar test için true kalsın
+          });
+          console.log("Pi SDK hazır.");
+        } catch (err) {
+          console.error("Pi SDK başlatılamadı:", err);
+        }
+      }
+    };
+    initPi();
+  }, []);
 
-export default function LoginPage() {
-  const router = useRouter();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErrorMsg(null);
-    setLoading(true);
+  const handlePiLogin = async () => {
+    if (!(window as any).Pi) {
+      alert("Pi Browser kullanmalısınız!");
+      return;
+    }
 
     try {
-      const formData = new FormData();
-      formData.append("email", email.trim().toLowerCase());
-      formData.append("password", password);
-      formData.append("next", "/dashboard");
+      const scopes = ['payments', 'username'];
+      
+      // Tamamlanmamış ödemeleri kontrol eden zorunlu fonksiyon
+      const onIncompletePaymentFound = (payment: any) => {
+        console.log("Tamamlanmamış ödeme bulundu:", payment);
+        // Burada backend'e ödemeyi tamamlaması için istek atabilirsin
+      };
 
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      const text = await res.text();
-      let data: any = null;
-
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(
-          "Login API JSON dönmedi. (Muhtemelen redirect/HTML geldi) İlk 200 karakter: " +
-            text.slice(0, 200)
-        );
-      }
-
-      if (!res.ok || !data?.success) {
-        setErrorMsg(data?.error || "Giriş yapılamadı. Bilgileri kontrol et.");
-        return;
-      }
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err: any) {
-      setErrorMsg(err?.message || "Beklenmeyen hata oluştu.");
-    } finally {
-      setLoading(false);
+      // İşte tepki vermeyen butonun çalışmasını sağlayacak asıl tetikleyici
+      const auth = await (window as any).Pi.authenticate(scopes, onIncompletePaymentFound);
+      console.log("Giriş Başarılı! Kullanıcı:", auth.user.username);
+      
+      // Giriş başarılıysa kullanıcıyı Dashboard'a yönlendir
+      // window.location.href = "/dashboard";
+      
+    } catch (err) {
+      console.error("Giriş sırasında hata oluştu:", err);
     }
-  }
+  };
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: 16 }}>
-      <h1 style={{ fontSize: 42, fontWeight: 800, marginBottom: 8 }}>
-        GİRİŞ YAP
-      </h1>
-
-      <p style={{ marginBottom: 16, opacity: 0.8 }}>
-        SnapLogic hesabınla oturum aç.
-      </p>
-
-      {errorMsg ? (
-        <div
-          style={{
-            background: "#fee2e2",
-            border: "1px solid #ef4444",
-            color: "#991b1b",
-            padding: 12,
-            borderRadius: 10,
-            marginBottom: 12,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {errorMsg}
-        </div>
-      ) : null}
-
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontWeight: 700 }}>Email</span>
-          <input
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="ornek@gmail.com"
-            required
-            style={{
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #cbd5e1",
-              fontSize: 16,
-            }}
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontWeight: 700 }}>Şifre</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-            style={{
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #cbd5e1",
-              fontSize: 16,
-            }}
-          />
-        </label>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #0f172a",
-            background: loading ? "#94a3b8" : "#0f172a",
-            color: "white",
-            fontWeight: 800,
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "GİRİŞ YAPILIYOR..." : "GİRİŞ YAP"}
-        </button>
-
-        <div style={{ marginTop: 6, opacity: 0.85 }}>
-          Hesabın yok mu? <a href="/auth/signup">Kayıt ol</a>
-        </div>
-      </form>
+    <div className="flex flex-col items-center justify-center">
+      <button 
+        onClick={handlePiLogin}
+        className="bg-blue-600 text-white px-6 py-2 rounded-lg"
+      >
+        Pi Network ile Giriş Yap
+      </button>
     </div>
   );
 }
