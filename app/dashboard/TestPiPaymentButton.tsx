@@ -22,9 +22,11 @@ type PiSdk = {
   ) => void;
 };
 
+// ÖNEMLİ: PiLoginButton.tsx zaten Window.Pi'yi any diye declare ediyor.
+// Aynı kalsın ki TS merge hatası olmasın.
 declare global {
   interface Window {
-    Pi?: PiSdk;
+    Pi?: any;
   }
 }
 
@@ -36,13 +38,14 @@ export default function TestPiPaymentButton() {
   const origin =
     typeof window !== "undefined" ? window.location.origin : "(server)";
 
-  // Init SDK ASAP
   useEffect(() => {
-    const Pi = window.Pi;
+    const Pi = window.Pi as PiSdk | undefined;
+
     if (!Pi) {
       setStatus("Pi SDK yükleniyor... (Pi Browser içinde misin?)");
       return;
     }
+
     try {
       Pi.init({ version: "2.0", sandbox });
       setStatus(`Pi SDK hazır. Sandbox: ${sandbox}`);
@@ -57,15 +60,18 @@ export default function TestPiPaymentButton() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+    if (!res.ok) throw new Error((json as any)?.error || `HTTP ${res.status}`);
     return json;
   };
 
   const runTestPayment = async () => {
     setLoading(true);
+
     try {
-      const Pi = window.Pi;
+      const Pi = window.Pi as PiSdk | undefined;
+
       if (!Pi) {
         setStatus("Pi SDK bulunamadı. Pi Browser içinde açmalısın.");
         return;
