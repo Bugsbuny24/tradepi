@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type PiSdk = {
   init: (opts: { version: string; sandbox?: boolean }) => void;
   authenticate: (
     scopes: string[],
-    onIncompletePaymentFound?: (payment: any) => void | Promise<void>
+    onIncompletePaymentFound: (payment: any) => void
   ) => Promise<any>;
   createPayment: (
     paymentData: { amount: number; memo: string; metadata?: any },
@@ -32,96 +32,73 @@ export default function TestPiPaymentButton() {
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  // Vercel env: NEXT_PUBLIC_PI_SANDBOX = "true" ise sandbox açılır
-  const sandbox = useMemo(
-    () => process.env.NEXT_PUBLIC_PI_SANDBOX === "true",
-    []
-  );
+  const sandbox = process.env.NEXT_PUBLIC_PI_SANDBOX === "true";
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "(server)";
 
-  const onIncompletePaymentFound = async (payment: any) => {
-    // Pi SDK farklı alan isimleri döndürebiliyor
-    const paymentId =
-      payment?.identifier || payment?.paymentId || payment?.id || "";
-
-    if (!paymentId) {
-      console.log("incomplete payment found (no id):", payment);
+  // Init SDK ASAP
+  useEffect(() => {
+    const Pi = window.Pi;
+    if (!Pi) {
+      setStatus("Pi SDK yükleniyor... (Pi Browser içinde misin?)");
       return;
     }
-
-    setStatus(`Yarım kalan ödeme bulundu (${paymentId}). İptal ediyorum...`);
-
     try {
-      const res = await fetch("/api/pi/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || "cancel failed");
-
-      setStatus("Yarım kalan ödeme temizlendi. Şimdi tekrar dene ✅");
+      Pi.init({ version: "2.0", sandbox });
+      setStatus(`Pi SDK hazır. Sandbox: ${sandbox}`);
     } catch (e: any) {
-      console.error("cancel incomplete failed:", e);
-      setStatus(`Yarım kalan ödeme iptal edilemedi: ${e?.message || "Hata"}`);
+      setStatus(`Pi.init hata: ${e?.message || String(e)}`);
     }
+  }, [sandbox]);
+
+  const postJson = async (url: string, body: any) => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+    return json;
   };
 
   const runTestPayment = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setStatus("Pi SDK kontrol ediliyor...");
-
       const Pi = window.Pi;
       if (!Pi) {
-        setStatus("Pi SDK yok. Uygulamayı Pi Browser içinden mi açtın?");
+        setStatus("Pi SDK bulunamadı. Pi Browser içinde açmalısın.");
         return;
       }
 
-      Pi.init({ version: "2.0", sandbox });
-
       setStatus("Pi authorize (payments) isteniyor...");
-      await Pi.authenticate(["payments"], onIncompletePaymentFound);
+      await Pi.authenticate(["payments"], (payment: any) => {
+        console.log("incomplete payment found:", payment);
+      });
 
-      // Buraya geldiyse authorize OK
-      setStatus("Authorize tamam. Ödeme oluşturuluyor...");
-
-      // Test için küçük bir rakam bas
-      const amount = 0.01;
-
+      setStatus("Ödeme başlatılıyor...");
       Pi.createPayment(
         {
-          amount,
-          memo: "Step-10 Test Payment",
-          metadata: { internalId: `step10_${Date.now()}` },
+          amount: 0.1,
+          memo: "Pi Step-10 Test Payment",
+          metadata: { purpose: "step10" },
         },
         {
           onReadyForServerApproval: async (paymentId: string) => {
-            setStatus("Sunucu onayı bekleniyor (approve)...");
-            const res = await fetch("/api/pi/approve", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ paymentId }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error || "approve failed");
-            setStatus("Approve OK. Cüzdanda 'Cüzdanı Aç' aktif olmalı ✅");
+            setStatus("Sunucu onayı bekleniyor...");
+            await postJson("/api/pi/approve", { paymentId });
+            setStatus("Onaylandı, cüzdan ekranı açılmalı...");
           },
 
           onReadyForServerCompletion: async (paymentId: string, txid: string) => {
-            setStatus("Tamamlama (complete) gönderiliyor...");
-            const res = await fetch("/api/pi/complete", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ paymentId, txid }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error || "complete failed");
-            setStatus("✅ Ödeme tamamlandı! Step-10 geçer.");
+            setStatus("Ödeme tamamlanıyor...");
+            await postJson("/api/pi/complete", { paymentId, txid });
+            setStatus("✅ Ödeme tamamlandı");
           },
 
           onCancel: (paymentId: string) => {
             console.log("cancelled:", paymentId);
-            setStatus("Kullanıcı iptal etti.");
+            setStatus("İptal edildi");
           },
 
           onError: (error: any, payment?: any) => {
@@ -139,22 +116,24 @@ export default function TestPiPaymentButton() {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Pi Step-10 Test Payment</h2>
+    <div className="rounded-md border p-4 text-sm">
+      <div className="mb-2 font-semibold">Pi Step-10 Test Payment</div>
 
-      <div style={{ margin: "8px 0", opacity: 0.8 }}>
+      <div className="mb-3 text-xs opacity-70">
         Sandbox: <b>{String(sandbox)}</b>
         <br />
-        Origin: <b>{typeof window !== "undefined" ? window.location.origin : ""}</b>
+        Origin: <b>{origin}</b>
       </div>
 
-      <button onClick={runTestPayment} disabled={loading}>
+      <button
+        className="rounded border px-4 py-2 disabled:opacity-60"
+        onClick={runTestPayment}
+        disabled={loading}
+      >
         {loading ? "..." : "Test Payment"}
       </button>
 
-      {status ? (
-        <div style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{status}</div>
-      ) : null}
+      {status ? <div className="mt-3 text-xs">{status}</div> : null}
     </div>
   );
-                                    }
+}
