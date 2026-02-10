@@ -7,7 +7,9 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
   // IMPORTANT: response must be mutable inside setAll
-  let response = NextResponse.next({ request });
+  // NextResponse.next() only supports a lightweight request init (like headers).
+  // Passing the full NextRequest can crash on Vercel with MIDDLEWARE_INVOCATION_FAILED.
+  let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,13 +20,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: CookieToSet[]) {
-          // Keep request cookies in-sync for subsequent reads during this middleware run
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-
-          // Recreate the response with the updated request cookies
-          response = NextResponse.next({ request });
+          // In middleware, request.cookies is not safely mutable across runtimes.
+          // Only persist cookies on the outgoing response.
+          response = NextResponse.next({ request: { headers: request.headers } });
 
           // And persist cookies on the outgoing response
           cookiesToSet.forEach(({ name, value, options }) => {
