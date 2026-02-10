@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+// TypeScript hata vermesin diye tipleri tanımlıyoruz
+type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
+type CookieToSet = { name: string; value: string; options?: CookieOptions };
+
 export async function middleware(request: NextRequest) {
-  // 1. Başlangıç yanıtını oluştur
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -15,13 +18,13 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          // Çerezleri hem isteğe (request) hem yanıta (response) mühürle
+        // Buradaki tipi açıkça belirttik: (cookiesToSet: CookieToSet[])
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value); // Middleware içi kullanım için
+            request.cookies.set(name, value);
             response.cookies.set(name, value, {
               ...options,
-              sameSite: "lax", // Pi Browser için en stabil ayar
+              sameSite: "lax",
               secure: true,
               path: "/",
             });
@@ -31,16 +34,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Oturumu kontrol et
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 2. Pi Browser Yönlendirme Koruması
-  // Eğer kullanıcı giriş yapmışsa ve /auth sayfalarındaysa dashboard'a at
+  // Pi Browser'da takılmaması için yönlendirme mantığı
   if (user && request.nextUrl.pathname.startsWith("/auth")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Eğer kullanıcı giriş yapmamışsa ve korumalı sayfaya gidiyorsa login'e at
   if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
