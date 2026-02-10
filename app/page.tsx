@@ -21,7 +21,9 @@ export default function LandingPage() {
       {/* --- HERO: VİZYON --- */}
       <section className="relative pt-40 pb-20 px-6 text-center overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-yellow-500/5 blur-[120px] rounded-full opacity-50"></div>
-        
+        <div className="flex justify-center gap-4 pt-4">
+  <PiAuthButton />
+</div>
         <div className="relative z-10 max-w-4xl mx-auto space-y-8">
           <h1 className="text-5xl md:text-8xl font-black uppercase italic leading-[0.9] tracking-tighter">
             Veri Analitiğinde <br />
