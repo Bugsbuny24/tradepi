@@ -1,51 +1,50 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function POST(req: Request) {
-  const formData = await req.formData();
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
-  const next = String(formData.get("next") || "/dashboard");
+type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
+type CookieToSet = { name: string; value: string; options: CookieOptions };
 
-  const url = new URL(req.url);
-  const origin = url.origin;
+function makeSupabase(request: NextRequest, response: NextResponse) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!email || !password) {
-    return NextResponse.redirect(
-      `${origin}/auth/register?error=missing_fields&next=${encodeURIComponent(next)}`,
-      { status: 303 }
-    );
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
 
-  const supabase = await createClient();
-  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: redirectTo },
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: CookieToSet[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
   });
+}
+
+export async function POST(request: NextRequest) {
+  const url = new URL(request.url);
+  const origin = url.origin;
+
+  const formData = await request.formData();
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+
+  const response = NextResponse.redirect(`${origin}/auth/login?registered=1`, { status: 303 });
+  const supabase = makeSupabase(request, response);
+
+  const { error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
     return NextResponse.redirect(
-      `${origin}/auth/register?error=${encodeURIComponent(error.code ?? "signup_failed")}&next=${encodeURIComponent(next)}`,
+      `${origin}/auth/register?error=${encodeURIComponent(error.message)}`,
       { status: 303 }
     );
   }
 
-  // Supabase bazen “kullanıcı var/yok” sızdırmamak için aynı response döner.
-  // O yüzden net: "mail gitti" ekranına yolla.
-  const checkEmail = !data.session;
-
-  if (checkEmail) {
-    return NextResponse.redirect(
-      `${origin}/auth/login?checkEmail=1&next=${encodeURIComponent(next)}`,
-      { status: 303 }
-    );
-  }
-
-  // Confirm email kapalıysa direkt session gelir -> dashboard’a
-  return NextResponse.redirect(`${origin}${next.startsWith("/") ? next : "/dashboard"}`, {
-    status: 303,
-  });
+  return response;
 }
