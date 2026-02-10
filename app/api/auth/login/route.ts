@@ -1,4 +1,3 @@
-// app/api/auth/login/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { createRouteClient } from "@/lib/supabase/route";
 
@@ -21,14 +20,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // BURASI KRİTİK: Redirect yerine JSON dönüyoruz
-  // Ama öncesinde çerezleri bu JSON yanıtına mühürlememiz lazım
+  // Pi Browser için JSON dönüyoruz ki frontend'de window.location yapabilelim
   const finalResponse = NextResponse.json({ success: true, next });
 
+  // Çerez aktarımı (TypeScript hatası giderildi)
   initialResponse.cookies.getAll().forEach((c) => {
     finalResponse.cookies.set(c.name, c.value, {
-      ...c.options,
-      sameSite: "lax", // Pi Browser Lax seviyor
+      // Options yerine doğrudan c'nin kendisini yayıyoruz
+      ...c, 
+      sameSite: "lax", 
       secure: true,
       path: "/",
     });
