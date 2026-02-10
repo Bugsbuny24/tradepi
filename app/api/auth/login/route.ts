@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createRouteClient } from "@/lib/supabase/route";
+import { createServerClient } from "@supabase/ssr";
+
+type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
+type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -7,32 +10,38 @@ export async function POST(req: NextRequest) {
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/dashboard");
 
-  const { supabase, response: initialResponse } = createRouteClient(req);
+  // JSON response’u EN BAŞTA oluşturuyoruz ki cookie’ler direkt buna yazılsın
+  const res = NextResponse.json({ success: false });
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
+      },
+      setAll(cookiesToSet: CookieToSet[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          res.cookies.set(name, value, {
+            ...options,
+            sameSite: "lax",
+            secure: true,
+            path: "/",
+          });
+        });
+      },
+    },
   });
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    const url = new URL("/auth/login", req.url);
-    url.searchParams.set("error", error.message);
-    return NextResponse.redirect(url);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 401 }
+    );
   }
 
-  // Pi Browser için JSON dönüyoruz ki frontend'de window.location yapabilelim
-  const finalResponse = NextResponse.json({ success: true, next });
-
-  // Çerez aktarımı (TypeScript hatası giderildi)
-  initialResponse.cookies.getAll().forEach((c) => {
-    finalResponse.cookies.set(c.name, c.value, {
-      // Options yerine doğrudan c'nin kendisini yayıyoruz
-      ...c, 
-      sameSite: "lax", 
-      secure: true,
-      path: "/",
-    });
-  });
-
-  return finalResponse;
+  return NextResponse.json({ success: true, next }, { headers: res.headers });
 }
