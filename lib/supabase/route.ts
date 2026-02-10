@@ -15,14 +15,8 @@ export function createRouteClient(req: NextRequest) {
         getAll() {
           return cookies().getAll();
         },
-        setAll(cookiesToSet: any[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  return { supabase, response };
-}
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+  cookiesToSet.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options);
+  });
+      }
