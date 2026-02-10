@@ -1,16 +1,11 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createRouteClient } from "@/lib/supabase/route";
-
+// route (1).ts içinde login POST fonksiyonun
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
-
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/dashboard");
 
+  // Önemli: createRouteClient'ın hem supabase hem de response döndürdüğünden emin ol
   const { supabase, response } = createRouteClient(req);
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -19,22 +14,19 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    // Bu mesaj Supabase’ten gelir: invalid / email not confirmed vs.
     const url = new URL("/auth/login", req.url);
     url.searchParams.set("error", error.message);
     return NextResponse.redirect(url);
   }
 
-  // Eğer login olduysa session cookie set edilmiş olmalı
+  // Session başarılıysa, redirect objesini oluştur ve response içindeki çerezleri ona aktar
   const redirectUrl = new URL(next, req.url);
-  const redirect = NextResponse.redirect(redirectUrl);
+  const finalResponse = NextResponse.redirect(redirectUrl);
 
+  // createRouteClient içinde güncellenen çerezleri yeni response'a kopyalıyoruz
   response.cookies.getAll().forEach((c) => {
-    redirect.cookies.set(c);
+    finalResponse.cookies.set(c.name, c.value, c);
   });
 
-  // Bonus: oturum gerçekten var mı diye debug için
-  // console.log("Signed in user:", data?.user?.id);
-
-  return redirect;
+  return finalResponse;
 }
