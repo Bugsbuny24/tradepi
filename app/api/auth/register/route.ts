@@ -3,13 +3,17 @@ import { createRouteClient } from "@/lib/supabase/route";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-  const email = String(formData.get("email") ?? "");
+
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/dashboard");
 
   const { supabase, response } = createRouteClient(req);
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -23,13 +27,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Email confirmation AÇIKSA: kullanıcı login olmaz, success mesajı göster.
-  // Kapalıysa: session cookie gelir, aşağıdaki kısım onu da taşır.
-  const url = new URL("/auth/login", req.url);
-  url.searchParams.set(
-    "success",
-    "Kayıt başarılı. Mail onayı gerekiyorsa mailini kontrol et."
-  );
+  // Eğer email confirm AÇIKSA, user oluşturulur ama session gelmez.
+  // Confirm KAPALIYSA, bazen session gelir → direkt dashboard’a geçebiliriz.
+  const hasSession = !!data?.session;
+
+  const url = hasSession
+    ? new URL(next, req.url)
+    : new URL("/auth/login", req.url);
+
+  if (!hasSession) {
+    url.searchParams.set(
+      "success",
+      "Kayıt başarılı. Email onayı gerekiyorsa mailini kontrol et."
+    );
+  }
 
   const redirect = NextResponse.redirect(url);
 
