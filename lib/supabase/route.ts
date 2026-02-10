@@ -6,6 +6,13 @@ import { createServerClient } from "@supabase/ssr";
  * Supabase client for **Route Handlers** (app/api/* or app/auth/* route.ts).
  * In route handlers, you must set auth cookies on the **response** object.
  */
+
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: any; // Next.js cookie options / supabase ssr options
+};
+
 export function createRouteClient(req: NextRequest) {
   const response = NextResponse.next({
     request: {
@@ -21,7 +28,7 @@ export function createRouteClient(req: NextRequest) {
         getAll() {
           return cookies().getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
