@@ -1,6 +1,5 @@
-// app/api/auth/login/route.ts (veya senin login route dosyan)
 import { NextResponse, type NextRequest } from "next/server";
-import { createRouteClient } from "@/lib/supabase/route"; // route (5).ts'deki yer
+import { createRouteClient } from "@/lib/supabase/route"; // route (5).ts dosyan
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -8,10 +7,10 @@ export async function POST(req: NextRequest) {
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/dashboard");
 
-  // 1. Kendi oluşturduğun route client'ı çağır
+  // 1. Client ve başlangıç response objesini al
   const { supabase, response } = createRouteClient(req);
 
-  // 2. Giriş yap
+  // 2. Giriş yap (Çerezler arka planda 'response' objesine yazılır)
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -23,16 +22,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 3. BURASI KRİTİK: Redirect objesini oluştur
+  // 3. Yönlendirme objesini hazırla
   const redirectUrl = new URL(next, req.url);
-  // ÖNEMLİ: createRouteClient'tan dönen 'response' objesini temel alarak redirect yapmalısın
-  // Çünkü çerezler o 'response' objesinin içinde birikti.
   const finalResponse = NextResponse.redirect(redirectUrl);
 
-  // Çerezleri tek tek elle kopyalamak yerine response üzerinden yönetmek daha garantidir
-  // Ama senin yapıya göre şu aktarım en sağlamı:
+  // 4. KRİTİK ADIM: Çerez aktarımı
+  // Supabase'in 'response' içine yazdığı auth çerezlerini 'finalResponse'a kopyalıyoruz
   response.cookies.getAll().forEach((cookie) => {
-    finalResponse.cookies.set(cookie.name, cookie.value, cookie);
+    finalResponse.cookies.set(cookie.name, cookie.value, {
+      ...cookie,
+      // Bazı tarayıcı problemleri için ek güvenlik:
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
   });
 
   return finalResponse;
