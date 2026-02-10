@@ -1,4 +1,4 @@
-import { cancelPayment } from "@/lib/pi/pi-api";
+import { piCancelPayment } from "@/lib/pi/pi-api";
 
 export const runtime = "nodejs";
 
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "paymentId required" }, { status: 400 });
     }
 
-    const res = await cancelPayment(paymentId);
+    const res = await piCancelPayment(paymentId);
     return Response.json({ ok: true, res });
   } catch (e: any) {
     return Response.json(
