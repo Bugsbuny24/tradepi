@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BarChart3, ShieldCheck, Cpu, CreditCard, Globe, Zap, MousePointer2, Check } from "lucide-react";
-import PiAuthButton from "../components/PiAuthButton";
+import PiLoginButton from "@/components/PiLoginButton";
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#000] text-white selection:bg-yellow-500 selection:text-black font-sans tracking-tight">
