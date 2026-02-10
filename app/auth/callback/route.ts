@@ -1,49 +1,33 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { createRouteClient } from "@/lib/supabase/route";
 
-function safeNextPath(next: string | null) {
-  if (!next) return "/dashboard";
-  // open-redirect koruması: sadece internal path
-  if (!next.startsWith("/")) return "/dashboard";
-  return next;
-}
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const code = searchParams.get("code");
+  const next = searchParams.get("next") ?? "/dashboard";
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const origin = url.origin;
-
-  const code = url.searchParams.get("code");
-  const token_hash = url.searchParams.get("token_hash");
-  const type = url.searchParams.get("type"); // signup | magiclink | recovery | email_change
-  const nextPath = safeNextPath(url.searchParams.get("next"));
-
-  const supabase = await createClient();
-
-  // 1) OAuth/PKCE gibi akışlar -> code
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(
-        `${origin}/auth/login?error=${encodeURIComponent(error.code ?? "auth_callback_failed")}`,
-        { status: 303 }
-      );
-    }
+  if (!code) {
+    return NextResponse.redirect(
+      new URL("/auth/login?error=Missing%20code", req.url)
+    );
   }
 
-  // 2) Email verify / magic link -> token_hash + type
-  if (!code && token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({
-      type: type as any,
-      token_hash,
-    });
+  const { supabase, response } = createRouteClient(req);
 
-    if (error) {
-      return NextResponse.redirect(
-        `${origin}/auth/login?error=${encodeURIComponent(error.code ?? "verify_otp_failed")}`,
-        { status: 303 }
-      );
-    }
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    const url = new URL("/auth/login", req.url);
+    url.searchParams.set("error", error.message);
+    return NextResponse.redirect(url);
   }
 
-  return NextResponse.redirect(`${origin}${nextPath}`, { status: 303 });
+  const redirectUrl = new URL(next, req.url);
+  const redirect = NextResponse.redirect(redirectUrl);
+
+  response.cookies.getAll().forEach((c) => {
+    redirect.cookies.set(c);
+  });
+
+  return redirect;
 }
