@@ -1,12 +1,15 @@
+// lib/pi/pi-api.ts
+
 type PiPaymentDTO = any;
+
+const PI_API_BASE = "https://api.minepi.com/v2";
 
 function piHeaders(): Record<string, string> {
   const key = process.env.PI_API_KEY;
   if (!key) throw new Error("Missing PI_API_KEY");
 
-  // Pi örneklerinde `authorization: key ...` çok geçiyor.
-  // Bazı ortamlarda `Authorization: Key ...` da kabul görüyor.
   return {
+    // Pi örneklerinde iki format da kullanılıyor, ikisini de yolluyoruz
     Authorization: `Key ${key}`,
     authorization: `key ${key}`,
     "Content-Type": "application/json",
@@ -16,55 +19,67 @@ function piHeaders(): Record<string, string> {
 async function parseJson(res: Response) {
   const text = await res.text();
   try {
-    return JSON.parse(text);
+    return text ? JSON.parse(text) : null;
   } catch {
     return { raw: text };
   }
 }
 
-export async function piApprovePayment(paymentId: string): Promise<PiPaymentDTO> {
-  const url = `https://api.minepi.com/v2/payments/${encodeURIComponent(
-    paymentId
-  )}/approve`;
+async function piFetch<T>(
+  path: string,
+  init: RequestInit & { body?: any } = {}
+): Promise<T> {
+  const url = path.startsWith("http") ? path : `${PI_API_BASE}${path}`;
 
   const res = await fetch(url, {
-    method: "POST",
-    headers: piHeaders(),
-    body: "null",
+    ...init,
+    headers: {
+      ...piHeaders(),
+      ...(init.headers as Record<string, string> | undefined),
+    },
+    body:
+      init.body === undefined
+        ? undefined
+        : init.body === null
+        ? "null"
+        : typeof init.body === "string"
+        ? init.body
+        : JSON.stringify(init.body),
   });
 
-  const json = await parseJson(res);
+  const json: any = await parseJson(res);
+
   if (!res.ok) {
     throw new Error(
-      json?.error?.message ?? json?.message ?? `Pi approve failed (${res.status})`
+      json?.error?.message ??
+        json?.message ??
+        `Pi API failed (${res.status}) ${url}`
     );
   }
-  return json;
+
+  return json as T;
+}
+
+export async function piApprovePayment(paymentId: string): Promise<PiPaymentDTO> {
+  return piFetch<PiPaymentDTO>(
+    `/payments/${encodeURIComponent(paymentId)}/approve`,
+    { method: "POST", body: null }
+  );
 }
 
 export async function piCompletePayment(
   paymentId: string,
   txid: string
 ): Promise<PiPaymentDTO> {
-  const url = `https://api.minepi.com/v2/payments/${encodeURIComponent(
-    paymentId
-  )}/complete`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: piHeaders(),
-    body: JSON.stringify({ txid }),
-  });
-
-  const json = await parseJson(res);
-  if (!res.ok) {
-    throw new Error(
-      json?.error?.message ?? json?.message ?? `Pi complete failed (${res.status})`
-    );
-  }
-  return json;
+  return piFetch<PiPaymentDTO>(
+    `/payments/${encodeURIComponent(paymentId)}/complete`,
+    { method: "POST", body: { txid } }
+  );
 }
-export async function cancelPayment(paymentId: string) {
-  // Pi Platform: POST /v2/payments/{paymentId}/cancel
-  return piFetch(`/payments/${paymentId}/cancel`, { method: "POST" });
+
+export async function piCancelPayment(paymentId: string): Promise<PiPaymentDTO> {
+  return piFetch<PiPaymentDTO>(
+    `/payments/${encodeURIComponent(paymentId)}/cancel`,
+    { method: "POST", body: null }
+  );
 }
