@@ -1,10 +1,12 @@
-import { parseSnapScript } from "./parser";
+export type SnapScriptAST = {
+  lines: string[];
+};
 
-export function runSnapScript(code: string) {
-  const ast = parseSnapScript(code);
-  return {
-    ok: true,
-    ast,
-    output: `SnapScript executed.\nLines:\n- ${ast.lines.join("\n- ")}`,
-  };
+export function parseSnapScript(code: string): SnapScriptAST {
+  const lines = code
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  return { lines };
 }
