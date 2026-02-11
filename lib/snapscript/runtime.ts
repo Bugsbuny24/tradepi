@@ -2,6 +2,7 @@ import { parseSnapScript } from "./parser";
 
 export function runSnapScript(code: string) {
   const ast = parseSnapScript(code);
+
   return {
     ok: true,
     ast,
