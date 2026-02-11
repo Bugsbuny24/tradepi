@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "SnapLogic",
-  description: "The Universal Data Visualization Bridge for Modern Web & No-Code Apps",
+  description: "Pi-Native data visualization terminal",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="tr">
       <body>{children}</body>
