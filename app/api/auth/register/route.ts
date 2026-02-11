@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createRouteClient } from "@/lib/supabase/route";
+import { getSiteUrl } from "@/lib/site-url";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -17,7 +18,10 @@ export async function POST(req: NextRequest) {
     email,
     password,
     options: {
-      emailRedirectTo: new URL("/auth/callback", req.url).toString(),
+      // IMPORTANT: Use a canonical origin. Redirect hops between
+      // tradepigloball.co <-> www.tradepigloball.co can break PKCE/session
+      // flows (Pi Browser is extra sensitive to this).
+      emailRedirectTo: `${getSiteUrl(req)}/auth/callback`,
     },
   });
 
