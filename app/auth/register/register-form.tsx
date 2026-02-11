@@ -1,82 +1,93 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/browser";
 
 export default function RegisterForm() {
+  const router = useRouter();
+  const supabase = createClient();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
 
-  const submit = async (e: any) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setMsg("");
+    setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          // İstersen email doğrulama sonrası buraya döner
+          emailRedirectTo:
+            typeof window !== "undefined"
+              ? `${window.location.origin}/auth/login`
+              : undefined,
+        },
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMsg(data?.error || "Kayıt başarısız.");
-        setLoading(false);
+      if (error) throw error;
+
+      // Eğer email confirmation açıksa session gelmeyebilir.
+      if (!data.session) {
+        setMsg("Kayıt başarılı ✅ Email doğrulaması gerekebilir.");
+        router.push("/auth/login");
+        router.refresh();
         return;
       }
 
-      setMsg("Kayıt başarılı ✅ (Email doğrulaması gerekebilir)");
-      setLoading(false);
-
-      // kayıt sonrası login'e gönder
-      setTimeout(() => {
-        window.location.href = "/auth/login";
-      }, 800);
-    } catch (e: any) {
-      setMsg("Hata: " + (e?.message || "unknown"));
+      setMsg("Kayıt + giriş başarılı ✅");
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err: any) {
+      setMsg(err?.message || "Kayıt hatası");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-3">
       <input
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-gray-400"
-        placeholder="Email"
+        className="w-full px-4 py-3 rounded-xl border"
         type="email"
+        placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        required
       />
 
       <input
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-gray-400"
-        placeholder="Şifre"
+        className="w-full px-4 py-3 rounded-xl border"
         type="password"
+        placeholder="Şifre"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        required
+        minLength={6}
       />
 
       <button
+        className="w-full px-4 py-3 rounded-xl font-black bg-black text-white disabled:opacity-60"
         disabled={loading}
-        className="w-full rounded-2xl bg-black px-4 py-3 font-extrabold text-white transition hover:opacity-90 disabled:opacity-50"
+        type="submit"
       >
-        {loading ? "Oluşturuluyor..." : "HESAP OLUŞTUR"}
+        {loading ? "Kayıt..." : "Hesap Oluştur"}
       </button>
 
-      {msg ? (
-        <div
-          className={
-            "text-sm " +
-            (msg.toLowerCase().includes("başarılı")
-              ? "text-green-600"
-              : "text-red-600")
-          }
-        >
-          {msg}
-        </div>
-      ) : null}
+      <div className="text-sm text-gray-600">
+        Zaten hesabın var mı?{" "}
+        <a className="underline" href="/auth/login">
+          Giriş Yap
+        </a>
+      </div>
+
+      {msg ? <div className="text-sm">{msg}</div> : null}
     </form>
   );
 }
