@@ -1,31 +1,89 @@
-import LoginForm from "./login-form";
+"use client";
 
-type Props = {
-  searchParams?: { error?: string };
-};
+import Link from "next/link";
+import { useState } from "react";
+import { createBrowserClient } from "@/lib/supabase/client";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage({ searchParams }: Props) {
-  const error = searchParams?.error ? decodeURIComponent(searchParams.error) : "";
+export default function LoginPage() {
+  const supabase = createBrowserClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialError = searchParams.get("error");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(initialError);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    router.push("/dashboard");
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <h1 className="text-3xl font-black mb-6">Giriş Yap</h1>
+      <div className="w-full max-w-md rounded-2xl border p-6 bg-white shadow-sm">
+        <h1 className="text-3xl font-bold mb-6">Giriş Yap</h1>
 
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+        <form onSubmit={onSubmit} className="space-y-4">
+          <input
+            className="w-full rounded-xl border p-3 bg-blue-50"
+            placeholder="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <input
+            className="w-full rounded-xl border p-3 bg-blue-50"
+            placeholder="Şifre"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-black text-white py-3 font-semibold disabled:opacity-60"
+            disabled={loading}
+          >
+            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+          </button>
+
+          <div className="text-sm text-gray-600 text-center">
+            Hesabın yok mu?{" "}
+            <Link className="underline" href="/auth/register">
+              Kayıt ol
+            </Link>
           </div>
-        ) : null}
 
-        <LoginForm />
+          {error ? (
+            <p className="text-red-600 text-sm text-center">{error}</p>
+          ) : null}
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          Hesabın yok mu?{" "}
-          <a className="underline" href="/auth/register">
-            Kayıt ol
-          </a>
-        </div>
+          {!error ? (
+            <p className="text-green-600 text-sm text-center">
+              {/* optional success message slot */}
+            </p>
+          ) : null}
+        </form>
       </div>
     </main>
   );
