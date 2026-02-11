@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isPiBrowser, waitForPi } from "@/lib/pi";
+import { waitForPi, isPiBrowser } from "@/lib/pi";
 
 declare global {
   interface Window {
@@ -15,18 +15,17 @@ export default function PiAuthButton() {
   const [pi, setPi] = useState<any>(null);
   const [ready, setReady] = useState(false);
   const [msg, setMsg] = useState("SDK: Loading…");
-  const sandbox = false; // prod: false | testnet/dev deniyorsan true yap
+  const sandbox = false; // test için true, prod için false
 
   useEffect(() => {
     (async () => {
-      const Pi = await waitForPi(8000);
+      const Pi = await waitForPi(10000);
 
       if (!Pi) {
         setMsg(
-          `SDK gelmedi • sandbox: ${String(sandbox)} • ` +
-            (isPiBrowser()
-              ? "Pi Browser ama SDK yüklenmedi."
-              : "Pi SDK yok. Bu buton sadece Pi Browser’da çalışır.")
+          isPiBrowser()
+            ? "Pi Browser ama SDK yüklenmedi."
+            : "Pi SDK yok. Bu buton sadece Pi Browser’da çalışır."
         );
         return;
       }
@@ -34,7 +33,6 @@ export default function PiAuthButton() {
       setPi(Pi);
 
       try {
-        // init her sayfa açılışında 1 kez
         await Pi.init({ version: "2.0", sandbox });
         setReady(true);
         setMsg(`SDK: Ready • sandbox: ${String(sandbox)}`);
@@ -44,27 +42,42 @@ export default function PiAuthButton() {
     })();
   }, [sandbox]);
 
+  const setPiCookies = (username: string) => {
+    const maxAge = 60 * 60 * 24 * 30; // 30 gün
+    // HTTPS'te çalışsın diye Secure ekliyoruz
+    document.cookie = `pi_authed=1; Path=/; Max-Age=${maxAge}; SameSite=Lax; Secure`;
+    document.cookie = `pi_user=${encodeURIComponent(
+      username || ""
+    )}; Path=/; Max-Age=${maxAge}; SameSite=Lax; Secure`;
+  };
+
   const handleClick = async () => {
     if (!pi || !ready) {
-      setMsg("SDK hazır değil… Pi Browser içinde tekrar dene.");
+      setMsg("SDK hazır değil…");
       return;
     }
 
     setMsg("Auth başlıyor ⏳");
 
     try {
-      const scopes = ["username"]; // payments lazım değilse çıkar (daha az hata)
+      const scopes = ["username"]; // payments gerekmezse alma (daha az sorun)
       const onIncompletePaymentFound = (payment: any) =>
         console.log("Incomplete payment:", payment);
 
       const auth = await pi.authenticate(scopes, onIncompletePaymentFound);
 
-      // auth geldi → dashboard’a geç
+      const username = auth?.user?.username || "";
+
+      // ✅ Middleware görebilsin diye cookie yaz
+      setPiCookies(username);
+
+      // debug istersen kalsın
       localStorage.setItem("pi_auth", JSON.stringify(auth || {}));
-      localStorage.setItem("pi_username", auth?.user?.username || "");
+      localStorage.setItem("pi_username", username);
 
-      setMsg(`Giriş başarılı ✅ @${auth?.user?.username || "unknown"}`);
+      setMsg(`Giriş başarılı ✅ @${username || "unknown"}`);
 
+      // ✅ push yerine replace daha temiz
       router.replace("/dashboard");
       router.refresh();
     } catch (e: any) {
