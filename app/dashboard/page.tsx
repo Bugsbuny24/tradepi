@@ -1,40 +1,36 @@
-import { createServerClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardPage() {
-  const supabase = createServerClient();
+  const supabase = createClient();
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) redirect("/auth/login");
+  if (!user) redirect("/auth/login");
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="w-full max-w-xl rounded-2xl border p-6">
-        <h1 className="text-2xl font-black">Dashboard</h1>
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-xl rounded-xl border bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="mt-2 text-gray-600">Hoşgeldin {user.email}</p>
 
-        <p className="mt-2 text-sm text-gray-600">
-          Hoşgeldin <b>{session.user.email}</b>
-        </p>
-
-        <div className="mt-6 flex items-center gap-3">
-          <Link
+        <div className="mt-6 flex gap-3">
+          <a
             href="/"
-            className="px-4 py-2 rounded-xl border hover:bg-gray-50 transition"
+            className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
           >
             Ana Sayfa
-          </Link>
+          </a>
 
           <form action="/api/auth/logout" method="post">
-            <button className="px-4 py-2 rounded-xl bg-black text-white hover:opacity-90 transition">
+            <button className="rounded-lg bg-black px-4 py-2 text-sm text-white">
               Çıkış Yap
             </button>
           </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
