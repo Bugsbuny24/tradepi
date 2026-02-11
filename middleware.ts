@@ -6,11 +6,8 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
-  const isProd = process.env.NODE_ENV === "production";
-  const hostname = request.nextUrl.hostname;
-  const sharedDomain = hostname.endsWith("tradepigloball.co")
-    ? ".tradepigloball.co"
-    : undefined;
+
+  const piUsername = request.cookies.get("pi_username")?.value;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,9 +22,8 @@ export async function middleware(request: NextRequest) {
             response.cookies.set(name, value, {
               ...options,
               sameSite: "lax",
-              secure: isProd,
+              secure: true,
               path: "/",
-              ...(sharedDomain ? { domain: sharedDomain } : {}),
             });
           });
         },
@@ -35,13 +31,15 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (user && request.nextUrl.pathname.startsWith("/auth")) {
+  if ((user || piUsername) && request.nextUrl.pathname.startsWith("/auth")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+  if (!user && !piUsername && request.nextUrl.pathname.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
@@ -50,7 +48,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // api’yi de dışarıda bırak (daha stabil)
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
