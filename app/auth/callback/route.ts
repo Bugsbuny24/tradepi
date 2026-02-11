@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const origin = url.origin;
+export async function GET(request: Request) {
+  const url = new URL(request.url);
 
-  // Eğer callback’e error geldiyse login’e geri bas
-  const error = url.searchParams.get("error");
-  if (error) {
-    return NextResponse.redirect(
-      new URL(`/auth/login?error=${encodeURIComponent(error)}`, origin)
-    );
-  }
-
-  // İstersen callback sonrası gideceği yer
-  const next = url.searchParams.get("next") || "/dashboard";
-
-  return NextResponse.redirect(new URL(next, origin));
+  // You can safely redirect to home or dashboard.
+  // If you later add OAuth providers, you can handle code/state here.
+  return NextResponse.redirect(new URL("/", url.origin));
 }
