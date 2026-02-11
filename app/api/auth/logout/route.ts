@@ -18,8 +18,20 @@ function makeSupabase(request: NextRequest, response: NextResponse) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: CookieToSet[]) {
+        const isProd = process.env.NODE_ENV === "production";
+        const hostname = request.nextUrl.hostname;
+        const sharedDomain = hostname.endsWith("tradepigloball.co")
+          ? ".tradepigloball.co"
+          : undefined;
+
         cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
+          response.cookies.set(name, value, {
+            path: "/",
+            sameSite: "lax",
+            secure: isProd,
+            ...(sharedDomain ? { domain: sharedDomain } : {}),
+            ...options,
+          });
         });
       },
     },
