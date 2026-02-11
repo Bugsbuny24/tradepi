@@ -1,89 +1,76 @@
-
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/browser";
 
-type Props = {
-  initialError?: string | null;
-};
+export default function LoginForm() {
+  const router = useRouter();
+  const supabase = createClient();
 
-export default function LoginForm({ initialError }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string>(initialError ?? "");
-
-  const canSubmit = useMemo(() => {
-    return email.trim().length > 3 && password.trim().length >= 6 && !loading;
-  }, [email, password, loading]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setMsg("");
+    setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
+      if (error) throw error;
 
-      const data = await res.json().catch(() => ({} as any));
-
-      if (!res.ok) {
-        setMsg(data?.error || "Giriş başarısız.");
-        setLoading(false);
-        return;
-      }
-
-      // Cookie set edildi → dashboard'a git.
-      window.location.href = "/dashboard";
+      setMsg("Giriş başarılı ✅");
+      router.push("/dashboard");
+      router.refresh();
     } catch (err: any) {
-      setMsg(err?.message || "Bir hata oluştu.");
+      setMsg(err?.message || "Giriş hatası");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-3">
       <input
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-gray-400"
-        placeholder="Email"
+        className="w-full px-4 py-3 rounded-xl border"
         type="email"
-        autoComplete="email"
+        placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        required
       />
 
       <input
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-gray-400"
-        placeholder="Şifre"
+        className="w-full px-4 py-3 rounded-xl border"
         type="password"
-        autoComplete="current-password"
+        placeholder="Şifre"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        required
       />
 
       <button
-        disabled={!canSubmit}
-        className="w-full rounded-2xl bg-black px-4 py-3 font-extrabold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full px-4 py-3 rounded-xl font-black bg-black text-white disabled:opacity-60"
+        disabled={loading}
+        type="submit"
       >
-        {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+        {loading ? "Giriş..." : "Giriş Yap"}
       </button>
 
-      {msg ? (
-        <div
-          className={
-            "text-sm " +
-            (msg.toLowerCase().includes("başarılı")
-              ? "text-green-600"
-              : "text-red-600")
-          }
-        >
-          {msg}
-        </div>
-      ) : null}
+      <div className="text-sm text-gray-600">
+        Hesabın yok mu?{" "}
+        <a className="underline" href="/auth/register">
+          Kayıt ol
+        </a>
+      </div>
+
+      {msg ? <div className="text-sm">{msg}</div> : null}
     </form>
   );
 }
