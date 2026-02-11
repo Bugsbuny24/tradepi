@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -9,36 +8,31 @@ declare global {
   }
 }
 
-function setCookie(name: string, value: string, days = 30) {
-  const maxAge = days * 24 * 60 * 60;
-  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax; Secure`;
-}
-
 export default function PiLoginButton() {
-  const router = useRouter();
   const [ready, setReady] = useState(false);
   const [msg, setMsg] = useState("");
+  const initOnce = useRef(false);
 
-  const sandbox = useMemo(() => {
-    if (typeof window === "undefined") return true;
-    const h = window.location.hostname.toLowerCase();
-    const isProd = h === "tradepigloball.co" || h === "www.tradepigloball.co";
-    return !isProd;
-  }, []);
+  // prod’da false, testte true
+  const sandbox =
+    (process.env.NEXT_PUBLIC_PI_SANDBOX || "false").toLowerCase() === "true";
 
   useEffect(() => {
     let t: any;
     let tries = 0;
 
     const init = async () => {
+      if (initOnce.current) return;
+      initOnce.current = true;
+
       try {
         if (!window.Pi) return;
+
         await window.Pi.init({ version: "2.0", sandbox });
         setReady(true);
         setMsg(`Pi SDK hazır ✅ (sandbox: ${sandbox})`);
       } catch (e: any) {
-        console.error("Pi init error:", e);
-        setMsg("Pi init hata: " + (e?.message || JSON.stringify(e) || "unknown"));
+        setMsg("Pi init hata: " + (e?.message || "unknown"));
       }
     };
 
@@ -48,7 +42,7 @@ export default function PiLoginButton() {
         clearInterval(t);
         await init();
       }
-      if (tries > 30) {
+      if (tries > 40) {
         clearInterval(t);
         setMsg("Pi SDK bulunamadı. Pi Browser ile aç.");
       }
@@ -60,42 +54,48 @@ export default function PiLoginButton() {
   const handleClick = async () => {
     setMsg("Auth başlıyor ⏳");
 
-    if (!window.Pi) {
-      setMsg("Pi SDK yok. Bu buton sadece Pi Browser’da çalışır.");
-      return;
-    }
-    if (!ready) {
-      setMsg("SDK hazır değil… 1-2 sn bekle.");
-      return;
-    }
-
     try {
-      await window.Pi.init({ version: "2.0", sandbox });
+      if (!window.Pi) {
+        setMsg("Pi SDK yok. Pi Browser ile aç.");
+        return;
+      }
 
-      const auth = await Promise.race([
-        window.Pi.authenticate(["username"], () => {}),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Auth ekranı açılmadı (timeout).")), 10000)
-        ),
-      ]);
+      const scopes = ["username"]; // şimdilik yeterli (payments gerekirse ekleriz)
 
-      const username = auth?.user?.username || "";
-      if (!username) throw new Error("Pi auth döndü ama username boş geldi.");
+      const onIncompletePaymentFound = (payment: any) => {
+        console.log("Incomplete payment:", payment);
+      };
 
-      setCookie("pi_username", username);
+      const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
 
-      try {
-        localStorage.setItem("pi_username", username);
-        localStorage.setItem("pi_auth", JSON.stringify(auth || {}));
-      } catch {}
+      const username = auth?.user?.username;
+      if (!username) {
+        setMsg("Pi auth OK ama username gelmedi ❌");
+        return;
+      }
 
-      setMsg(`Giriş başarılı ✅ @${username}`);
+      setMsg(`Pi giriş başarılı ✅ @${username}`);
 
-      router.push("/dashboard");
-      router.refresh();
+      // ✅ server cookie set (middleware bunu görecek)
+      const r = await fetch("/api/pi/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ username }),
+      });
+
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        setMsg("Session set hata: " + (j?.error || "unknown"));
+        return;
+      }
+
+      // ✅ Hard redirect: cookie kesin görünür
+      window.location.href = "/dashboard";
     } catch (e: any) {
-      console.error("Pi auth error:", e);
-      setMsg("Pi auth hata: " + (e?.message || JSON.stringify(e) || "unknown"));
+      console.error(e);
+      setMsg("Pi auth hata: " + (e?.message || "unknown"));
     }
   };
 
@@ -108,9 +108,9 @@ export default function PiLoginButton() {
         Pi Network ile Giriş Yap
       </button>
 
-      <div className="text-xs text-gray-400">
-        {ready ? "SDK: Ready" : "SDK: Loading…"} • sandbox: {sandbox ? "true" : "false"}
-        {msg ? ` • ${msg}` : ""}
+      <div className="text-xs text-gray-400 text-center">
+        {ready ? "SDK: Ready" : "SDK: Loading…"} • sandbox: {String(sandbox)}{" "}
+        {msg ? `• ${msg}` : ""}
       </div>
     </div>
   );
