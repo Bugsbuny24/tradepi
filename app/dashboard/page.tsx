@@ -1,34 +1,19 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
+import TestPiPaymentButton from "./TestPiPaymentButton";
 
-export default async function DashboardPage() {
-  const piUsername = cookies().get("pi_username")?.value;
+export default function DashboardPage() {
+  const c = cookies();
+  const piUsername = c.get("pi_username")?.value || null;
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-3xl font-black">Dashboard</h1>
+    <div className="min-h-screen p-6 space-y-4">
+      <h1 className="text-2xl font-black">Dashboard</h1>
 
-      {piUsername ? (
-        <div className="text-sm">
-          Pi kullanıcı: <b>@{piUsername}</b>
-        </div>
-      ) : (
-        <div className="text-sm text-gray-500">
-          Supabase oturumu veya Pi cookie bulunamadı.
-        </div>
-      )}
+      <p className="text-sm text-gray-400">
+        Pi User: <span className="font-bold text-white">{piUsername || "—"}</span>
+      </p>
 
-      <div className="flex gap-3">
-        <Link className="underline" href="/dashboard/designer">
-          Designer
-        </Link>
-        <Link className="underline" href="/dashboard/billing">
-          Billing
-        </Link>
-        <Link className="underline" href="/auth/login">
-          Login
-        </Link>
-      </div>
+      <TestPiPaymentButton />
     </div>
   );
 }
