@@ -1,29 +1,30 @@
-import Link from "next/link";
 import LoginForm from "./login-form";
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
-  const errorRaw = searchParams?.error;
-  const error = Array.isArray(errorRaw) ? errorRaw[0] : errorRaw;
+type Props = {
+  searchParams?: { error?: string };
+};
+
+export default function LoginPage({ searchParams }: Props) {
+  const error = searchParams?.error ? decodeURIComponent(searchParams.error) : "";
 
   return (
-    <main className="min-h-screen grid place-items-center bg-white px-4">
-      <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-        <h1 className="text-3xl font-black">Giriş Yap</h1>
-        <p className="mt-1 text-gray-500">SnapLogic hesabınla giriş yap</p>
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <h1 className="text-3xl font-black mb-6">Giriş Yap</h1>
 
-        <div className="mt-6">
-          <LoginForm initialError={error ?? ""} />
-        </div>
+        {error ? (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
 
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <LoginForm />
+
+        <div className="mt-6 text-center text-sm text-gray-600">
           Hesabın yok mu?{" "}
-          <Link href="/auth/register" className="font-semibold underline">
+          <a className="underline" href="/auth/register">
             Kayıt ol
-          </Link>
+          </a>
         </div>
       </div>
     </main>
