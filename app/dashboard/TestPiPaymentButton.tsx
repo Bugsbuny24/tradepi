@@ -1,11 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from "react";
-
-type Props = {
-  /** If true, Pi SDK runs in sandbox (Testnet) mode. */
-  sandbox?: boolean;
-};
+import { useMemo, useState } from "react";
 
 declare global {
   interface Window {
@@ -13,148 +8,119 @@ declare global {
   }
 }
 
-function loadPiSdk(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.Pi) return Promise.resolve();
+function getSandboxFlag() {
+  // Default true so you can test in Pi Sandbox; set NEXT_PUBLIC_PI_SANDBOX=false in Vercel to use production.
+  return (process.env.NEXT_PUBLIC_PI_SANDBOX ?? "true").toLowerCase() !== "false";
+}
 
-  // Avoid injecting multiple times
-  const existing = document.querySelector('script[data-pi-sdk="true"]') as HTMLScriptElement | null;
-  if (existing) {
-    return new Promise((resolve, reject) => {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Pi SDK failed to load")), { once: true });
-    });
-  }
+async function ensurePiSdkLoaded(): Promise<any> {
+  if (typeof window === "undefined") return null;
+  if (window.Pi) return window.Pi;
 
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector('script[data-pi-sdk="1"]') as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Pi SDK failed to load")));
+      return;
+    }
+
     const s = document.createElement("script");
     s.src = "https://sdk.minepi.com/pi-sdk.js";
     s.async = true;
-    s.defer = true;
-    s.dataset.piSdk = "true";
+    s.setAttribute("data-pi-sdk", "1");
     s.onload = () => resolve();
     s.onerror = () => reject(new Error("Pi SDK failed to load"));
     document.head.appendChild(s);
   });
+
+  return window.Pi;
 }
 
-export default function TestPiPaymentButton({ sandbox = true }: Props) {
-  const [sdkState, setSdkState] = useState<"loading" | "ready" | "missing" | "error">("loading");
+export default function TestPiPaymentButton() {
+  const sandbox = useMemo(() => getSandboxFlag(), []);
   const [status, setStatus] = useState<string>("");
-  const initedRef = useRef(false);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const run = async () => {
+    setLoading(true);
+    setStatus("");
 
-    (async () => {
-      try {
-        await loadPiSdk();
-
-        if (cancelled) return;
-        if (!window.Pi) {
-          setSdkState("missing");
-          return;
-        }
-
-        // Pi SDK init only once
-        if (!initedRef.current) {
-          initedRef.current = true;
-          try {
-            window.Pi.init({ version: "2.0", sandbox });
-          } catch {
-            // ignore if already initialized
-          }
-        }
-
-        setSdkState("ready");
-      } catch (e: any) {
-        console.error(e);
-        if (!cancelled) setSdkState("error");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sandbox]);
-
-  const disabled = sdkState !== "ready";
-
-  async function postJSON(path: string, body: any) {
-    const res = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`Request failed: ${res.status} ${txt}`);
-    }
-    return res.json().catch(() => ({}));
-  }
-
-  async function handlePay() {
     try {
-      setStatus("Starting payment…");
+      const Pi = await ensurePiSdkLoaded();
+      if (!Pi) throw new Error("Pi SDK bulunamadı. Pi Browser'da açmayı dene.");
 
-      if (!window.Pi) {
-        setStatus("Pi SDK not available. Open inside Pi Browser.");
-        return;
-      }
+      Pi.init({ version: "2.0", sandbox });
 
-      // NOTE: Use a small amount for testing; Pi sandbox ignores real funds.
-      const paymentData = {
-        amount: 0.01,
-        memo: "SnapLogic test payment",
-        metadata: {
-          purpose: "pi-developer-checklist",
-        },
-      };
+      const amount = 0.1;
+      const memo = "Test payment (Pi checklist)";
+      const metadata = { source: "tradepi", env: sandbox ? "sandbox" : "production" };
 
-      await window.Pi.createPayment(paymentData, {
-        onReadyForServerApproval: async (paymentId: string) => {
-          setStatus(`Server approval… (${paymentId})`);
-          await postJSON("/api/pi/create-payment", { paymentId });
-          setStatus("Approved. Waiting for completion…");
-        },
-        onReadyForServerCompletion: async (paymentId: string, txid: string) => {
-          setStatus(`Completing… (${paymentId})`);
-          await postJSON("/api/pi/complete-payment", { paymentId, txid });
-          setStatus("✅ Payment completed");
-        },
-        onCancel: (paymentId: string) => {
-          setStatus(`Cancelled (${paymentId})`);
-        },
-        onError: (error: any) => {
-          console.error(error);
-          setStatus(`❌ Error: ${error?.message ?? String(error)}`);
-        },
-      });
+      setStatus("Pi ödeme ekranı açılıyor...");
+
+      await Pi.createPayment(
+        { amount, memo, metadata },
+        {
+          onReadyForServerApproval: async (paymentId: string) => {
+            setStatus("Sunucu onayı alınıyor...");
+            const r = await fetch("/api/pi/approve", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId }),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || "Approve failed");
+          },
+          onReadyForServerCompletion: async (paymentId: string, txid: string) => {
+            setStatus("Sunucu tamamlama yapıyor...");
+            const r = await fetch("/api/pi/complete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId, txid }),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || "Complete failed");
+            setStatus("✅ Ödeme tamamlandı");
+          },
+          onCancel: async (paymentId: string) => {
+            setStatus("Ödeme iptal edildi");
+            await fetch("/api/pi/cancel", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paymentId }),
+            }).catch(() => {});
+          },
+          onError: (err: any) => {
+            setStatus(`❌ Hata: ${err?.message ?? String(err)}`);
+          },
+        }
+      );
     } catch (e: any) {
-      console.error(e);
-      setStatus(`❌ Error: ${e?.message ?? String(e)}`);
+      setStatus(`❌ ${e?.message ?? "Bir hata oldu"}`);
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="space-y-3">
+    <div className="mt-6 rounded-xl border bg-white p-4">
+      <div className="text-sm font-semibold">Pi Test Ödemesi</div>
+      <div className="mt-1 text-xs text-gray-500">
+        Bu buton Pi Browser içinde test ödeme ekranını açar (checklist adımı için).
+      </div>
+
       <button
-        type="button"
-        onClick={handlePay}
-        disabled={disabled}
-        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white ${
-          disabled ? "bg-black/40" : "bg-black hover:bg-black/90"
-        }`}
+        onClick={run}
+        disabled={loading}
+        className="mt-4 inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
-        {disabled ? "Pi SDK Hazırlanıyor…" : "Pi Test Ödeme (Sandbox)"}
+        {loading ? "Çalışıyor..." : "Test Pi Payment"}
       </button>
 
-      <div className="text-xs text-gray-500">
-        {sdkState === "missing" && "Pi SDK yok. Bu buton sadece Pi Browser içinde çalışır."}
-        {sdkState === "error" && "Pi SDK yüklenemedi. İnternet/CSP kontrol et."}
-        {sdkState === "ready" && (status ? status : "Hazır")}
-        {sdkState === "loading" && "Yükleniyor…"}
+      {status ? <div className="mt-3 text-xs text-gray-700">{status}</div> : null}
+
+      <div className="mt-3 text-[11px] text-gray-500">
+        Sandbox: <span className="font-mono">{String(sandbox)}</span> (NEXT_PUBLIC_PI_SANDBOX ile kontrol edilir)
       </div>
     </div>
   );
