@@ -6,6 +6,11 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
+  const isProd = process.env.NODE_ENV === "production";
+  const hostname = request.nextUrl.hostname;
+  const sharedDomain = hostname.endsWith("tradepigloball.co")
+    ? ".tradepigloball.co"
+    : undefined;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,8 +25,9 @@ export async function middleware(request: NextRequest) {
             response.cookies.set(name, value, {
               ...options,
               sameSite: "lax",
-              secure: true,
+              secure: isProd,
               path: "/",
+              ...(sharedDomain ? { domain: sharedDomain } : {}),
             });
           });
         },
