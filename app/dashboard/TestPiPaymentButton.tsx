@@ -1,13 +1,11 @@
-"use client";
+'use client';
 
-/**
- * NOTE:
- * You asked to remove Pi SDK/MDK from auth flows.
- * This file is kept as a standalone demo button (optional) for Pi payment testing.
- * If you are not using Pi payments, you can delete this file safely.
- */
+import { useEffect, useRef, useState } from "react";
 
-import { useEffect, useMemo, useState } from "react";
+type Props = {
+  /** If true, Pi SDK runs in sandbox (Testnet) mode. */
+  sandbox?: boolean;
+};
 
 declare global {
   interface Window {
@@ -15,84 +13,149 @@ declare global {
   }
 }
 
-export default function TestPiPaymentButton() {
-  const [ready, setReady] = useState(false);
-  const [status, setStatus] = useState<string>("Pi SDK bekleniyor...");
+function loadPiSdk(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.Pi) return Promise.resolve();
 
-  const isPiBrowser = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    // basic heuristic
-    return !!window.Pi;
-  }, []);
+  // Avoid injecting multiple times
+  const existing = document.querySelector('script[data-pi-sdk="true"]') as HTMLScriptElement | null;
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Pi SDK failed to load")), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://sdk.minepi.com/pi-sdk.js";
+    s.async = true;
+    s.defer = true;
+    s.dataset.piSdk = "true";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Pi SDK failed to load"));
+    document.head.appendChild(s);
+  });
+}
+
+export default function TestPiPaymentButton({ sandbox = true }: Props) {
+  const [sdkState, setSdkState] = useState<"loading" | "ready" | "missing" | "error">("loading");
+  const [status, setStatus] = useState<string>("");
+  const initedRef = useRef(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    let cancelled = false;
 
-    // If Pi is injected, mark ready.
-    if (window.Pi) {
-      setReady(true);
-      setStatus("Pi SDK hazır.");
-    } else {
-      setReady(false);
-      setStatus("Pi SDK yok. Bu buton sadece Pi Browser’da çalışır.");
+    (async () => {
+      try {
+        await loadPiSdk();
+
+        if (cancelled) return;
+        if (!window.Pi) {
+          setSdkState("missing");
+          return;
+        }
+
+        // Pi SDK init only once
+        if (!initedRef.current) {
+          initedRef.current = true;
+          try {
+            window.Pi.init({ version: "2.0", sandbox });
+          } catch {
+            // ignore if already initialized
+          }
+        }
+
+        setSdkState("ready");
+      } catch (e: any) {
+        console.error(e);
+        if (!cancelled) setSdkState("error");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sandbox]);
+
+  const disabled = sdkState !== "ready";
+
+  async function postJSON(path: string, body: any) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Request failed: ${res.status} ${txt}`);
     }
-  }, []);
+    return res.json().catch(() => ({}));
+  }
 
-  async function onPay() {
+  async function handlePay() {
     try {
+      setStatus("Starting payment…");
+
       if (!window.Pi) {
-        setStatus("Pi SDK yok.");
+        setStatus("Pi SDK not available. Open inside Pi Browser.");
         return;
       }
 
-      setStatus("Ödeme başlatılıyor...");
-
-      // Example payment data
+      // NOTE: Use a small amount for testing; Pi sandbox ignores real funds.
       const paymentData = {
-        amount: 0.001, // test amount
-        memo: "Test payment",
-        metadata: { purpose: "test" },
+        amount: 0.01,
+        memo: "SnapLogic test payment",
+        metadata: {
+          purpose: "pi-developer-checklist",
+        },
       };
 
-      // Pi SDK payment flow (if enabled in your app)
-      const res = await window.Pi.createPayment(paymentData, {
+      await window.Pi.createPayment(paymentData, {
         onReadyForServerApproval: async (paymentId: string) => {
-          // TODO: call your backend to approve payment
-          console.log("onReadyForServerApproval", paymentId);
+          setStatus(`Server approval… (${paymentId})`);
+          await postJSON("/api/pi/create-payment", { paymentId });
+          setStatus("Approved. Waiting for completion…");
         },
         onReadyForServerCompletion: async (paymentId: string, txid: string) => {
-          // TODO: call your backend to complete payment
-          console.log("onReadyForServerCompletion", paymentId, txid);
+          setStatus(`Completing… (${paymentId})`);
+          await postJSON("/api/pi/complete-payment", { paymentId, txid });
+          setStatus("✅ Payment completed");
         },
         onCancel: (paymentId: string) => {
-          console.log("onCancel", paymentId);
+          setStatus(`Cancelled (${paymentId})`);
         },
-        onError: (error: any, payment?: any) => {
-          console.error("onError", error, payment);
+        onError: (error: any) => {
+          console.error(error);
+          setStatus(`❌ Error: ${error?.message ?? String(error)}`);
         },
       });
-
-      setStatus("Ödeme akışı tamamlandı.");
-      console.log("payment result", res);
     } catch (e: any) {
-      setStatus(`Hata: ${e?.message || "bilinmiyor"}`);
+      console.error(e);
+      setStatus(`❌ Error: ${e?.message ?? String(e)}`);
     }
   }
 
   return (
-    <div className="rounded-2xl border p-4 bg-white">
-      <div className="text-sm text-gray-600 mb-3">
-        {isPiBrowser ? "Pi Browser algılandı." : "Pi Browser değil gibi."}{" "}
-        {status}
-      </div>
-
+    <div className="space-y-3">
       <button
-        onClick={onPay}
-        disabled={!ready}
-        className="rounded-xl bg-purple-700 text-white px-4 py-2 font-semibold disabled:opacity-60"
+        type="button"
+        onClick={handlePay}
+        disabled={disabled}
+        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white ${
+          disabled ? "bg-black/40" : "bg-black hover:bg-black/90"
+        }`}
       >
-        Test Pi Payment
+        {disabled ? "Pi SDK Hazırlanıyor…" : "Pi Test Ödeme (Sandbox)"}
       </button>
+
+      <div className="text-xs text-gray-500">
+        {sdkState === "missing" && "Pi SDK yok. Bu buton sadece Pi Browser içinde çalışır."}
+        {sdkState === "error" && "Pi SDK yüklenemedi. İnternet/CSP kontrol et."}
+        {sdkState === "ready" && (status ? status : "Hazır")}
+        {sdkState === "loading" && "Yükleniyor…"}
+      </div>
     </div>
   );
 }
