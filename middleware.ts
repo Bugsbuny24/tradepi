@@ -5,9 +5,28 @@ type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+  const pathname = request.nextUrl.pathname;
 
-  const piUsername = request.cookies.get("pi_username")?.value;
+  const isAuthRoute = pathname.startsWith("/auth");
+  const isDashboardRoute = pathname.startsWith("/dashboard");
+
+  // ✅ Pi auth cookie kontrolü
+  const piAuthed = request.cookies.get("pi_authed")?.value === "1";
+
+  // Pi login olmuşsa auth sayfalarına sokma
+  if (piAuthed && isAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Pi login olmuşsa dashboard’a izin ver
+  if (piAuthed && isDashboardRoute) {
+    return NextResponse.next();
+  }
+
+  // ---- Supabase auth (mevcut mantığın) ----
+  let response = NextResponse.next({
+    request: { headers: request.headers },
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,14 +37,18 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, {
               ...options,
               sameSite: "lax",
               secure: true,
               path: "/",
-            });
-          });
+            })
+          );
         },
       },
     }
@@ -35,12 +58,14 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if ((user || piUsername) && request.nextUrl.pathname.startsWith("/auth")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  // dashboard koruması (Supabase ile)
+  if (!user && isDashboardRoute) {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  if (!user && !piUsername && request.nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
+  // user varsa auth sayfalarından dashboard’a
+  if (user && isAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
@@ -48,6 +73,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    /*
+      API, _next ve statikleri dışarıda bırak
+    */
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
