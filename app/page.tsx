@@ -2,64 +2,65 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-white text-black">
-      <div className="mx-auto max-w-4xl px-6 py-14">
-        <div className="text-sm font-medium text-gray-600">SnapLogic</div>
+    <main className="min-h-screen bg-white">
+      <section className="max-w-4xl mx-auto px-6 py-16">
+        <div className="text-sm text-gray-500 mb-6">SnapLogic</div>
 
-        <h1 className="mt-6 text-5xl font-black leading-[1.05] tracking-tight md:text-7xl">
+        <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
           Veri Analitiğinde
           <br />
           Yeni Standart.
         </h1>
 
-        <p className="mt-6 max-w-2xl text-lg text-gray-600">
-          SnapScript v0 motoruyla güçlendirilmiş, canlı veri widget’larını saniyeler
-          içinde üret ve her yere embed et.
+        <p className="text-lg text-gray-600 mb-6">
+          SnapScript v0 motoruyla güçlendirilmiş, dünyanın ilk Pi-Native veri
+          görselleştirme terminali ile tanışın.
         </p>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Link className="text-blue-600 underline" href="/dashboard">
+          Sistemi Keşfet
+        </Link>
+
+        <div className="mt-10">
           <Link
             href="/auth/login"
-            className="inline-flex items-center justify-center rounded-2xl bg-black px-7 py-4 text-base font-extrabold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99]"
+            className="inline-flex items-center justify-center rounded-2xl bg-yellow-500 px-8 py-4 font-bold text-black shadow-sm"
           >
-            Giriş Yap
+            Pi Network ile Giriş Yap
           </Link>
 
-          <Link
-            href="/auth/register"
-            className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-7 py-4 text-base font-extrabold text-black shadow-sm transition hover:bg-gray-50 active:scale-[0.99]"
-          >
-            Kayıt Ol
-          </Link>
-
-          <Link href="/dashboard" className="text-sm font-semibold text-gray-600 underline">
-            Dashboard’a Git
-          </Link>
+          <div className="text-sm text-gray-400 mt-2">
+            SDK: Loading... • sandbox: false • Pi SDK yok. Bu buton sadece Pi
+            Browser’da çalışır.
+          </div>
         </div>
 
-        <div className="mt-14 grid gap-10 md:grid-cols-2">
-          <section>
-            <h2 className="text-3xl font-black">SnapScript Engine</h2>
-            <p className="mt-3 text-gray-600">
-              Veriler arası reaktif bağıntılar kuran özel düşük-seviyeli kodlama dili.
+        <div className="mt-16 space-y-12">
+          <div>
+            <h2 className="text-4xl font-extrabold mb-3">SnapScript Engine</h2>
+            <p className="text-gray-600">
+              Veriler arası reaktif bağıntılar kuran özel düşük-seviyeli
+              kodlama dili.
             </p>
-          </section>
+          </div>
 
-          <section>
-            <h2 className="text-3xl font-black">Universal Embed</h2>
-            <p className="mt-3 text-gray-600">
-              Görselleştirmelerinizi her türlü dijital ortama tek satır kodla entegre edin.
+          <div>
+            <h2 className="text-4xl font-extrabold mb-3">Universal Embed</h2>
+            <p className="text-gray-600">
+              Görselleştirmelerinizi her türlü dijital ortama tek satır kodla
+              entegre edin.
             </p>
-          </section>
+          </div>
 
-          <section>
-            <h2 className="text-3xl font-black">Billing</h2>
-            <p className="mt-3 text-gray-600">
-              Abonelik ve erişim yönetimini tek noktadan yönet.
+          <div>
+            <h2 className="text-4xl font-extrabold mb-3">Pi-Native Billing</h2>
+            <p className="text-gray-600">
+              Tamamen blokzincir tabanlı, şeffaf ve güvenli abonelik yönetim
+              sistemi.
             </p>
-          </section>
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
