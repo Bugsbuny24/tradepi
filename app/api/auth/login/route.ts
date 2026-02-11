@@ -1,47 +1,22 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/route";
 
-type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
+export async function POST(req: Request) {
+  try {
+    const { email, password } = await req.json();
+    const supabase = await createClient();
 
-export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/dashboard");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  // JSON response’u EN BAŞTA oluşturuyoruz ki cookie’ler direkt buna yazılsın
-  const res = NextResponse.json({ success: false });
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return req.cookies.getAll();
-      },
-      setAll(cookiesToSet: CookieToSet[]) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          res.cookies.set(name, value, {
-            ...options,
-            sameSite: "lax",
-            secure: true,
-            path: "/",
-          });
-        });
-      },
-    },
-  });
-
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 401 }
-    );
+    return NextResponse.json({ ok: true, user: data.user });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "unknown" }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true, next }, { headers: res.headers });
 }
