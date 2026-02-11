@@ -1,8 +1,13 @@
-### app/api/dev/route.ts
-```ts
-// app/api/dev/route.ts
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Lightweight health endpoint for checking the deployment from Pi Browser / Vercel.
+ */
 export async function GET() {
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    ts: new Date().toISOString(),
+  });
 }
