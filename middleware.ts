@@ -1,54 +1,35 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-
-type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
+import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request });
+
   const pathname = request.nextUrl.pathname;
 
   const isAuthRoute = pathname.startsWith("/auth");
-  const isDashboardRoute = pathname.startsWith("/dashboard");
+  const isProtectedRoute = pathname.startsWith("/dashboard");
 
-  // ✅ Pi auth cookie kontrolü
-  const piAuthed = request.cookies.get("pi_authed")?.value === "1";
+  // ✅ Pi cookie varsa “logged-in” say
+  const hasPiSession = request.cookies.get("pi_session")?.value === "1";
 
-  // Pi login olmuşsa auth sayfalarına sokma
-  if (piAuthed && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // Pi login olmuşsa dashboard’a izin ver
-  if (piAuthed && isDashboardRoute) {
-    return NextResponse.next();
-  }
-
-  // ---- Supabase auth (mevcut mantığın) ----
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
-
+  // ✅ Supabase kontrolü (varsa o da logged-in)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
+        get(name: string) {
+          return request.cookies.get(name)?.value;
         },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, {
-              ...options,
-              sameSite: "lax",
-              secure: true,
-              path: "/",
-            })
-          );
+        set(name: string, value: string, options: any) {
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({ request });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          request.cookies.set({ name, value: "", ...options });
+          response = NextResponse.next({ request });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     }
@@ -58,24 +39,25 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // dashboard koruması (Supabase ile)
-  if (!user && isDashboardRoute) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
+  const isAuthed = hasPiSession || !!user;
+
+  // ✅ logged-in ise auth sayfalarına girme → dashboard
+  if (isAuthed && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
   }
 
-  // user varsa auth sayfalarından dashboard’a
-  if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  // ✅ logged-in değilse dashboard’a girme → login
+  if (!isAuthed && isProtectedRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
   }
 
   return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-      API, _next ve statikleri dışarıda bırak
-    */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
