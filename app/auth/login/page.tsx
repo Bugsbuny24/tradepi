@@ -6,11 +6,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
+  const supabase = createBrowserClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialError = searchParams.get("error");
@@ -21,21 +17,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(initialError);
 
   async function onSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  setLoading(false);
-
-  if (error) {
-    setError(error.message);
-    return;
-  }
-
-  router.push("/dashboard");
-  }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
