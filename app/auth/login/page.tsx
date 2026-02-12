@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { createBrowserClient } from '@supabase/ssr'
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
