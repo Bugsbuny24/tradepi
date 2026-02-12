@@ -9,14 +9,12 @@ export default async function DashboardLayout({
 }) {
   const piUsername = cookies().get("pi_username")?.value;
 
-  // ✅ Pi cookie varsa login say
   if (piUsername) return <>{children}</>;
 
-  // Supabase fallback
   const supabase = createServerSupabaseClient();
   const { data } = await supabase.auth.getUser();
 
-  if (!data.user) redirect("/auth/login?next=/dashboard");
+  if (!data.user) redirect("/auth/login");
 
   return <>{children}</>;
 }
