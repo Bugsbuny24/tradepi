@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
@@ -13,7 +13,7 @@ export default async function DashboardLayout({
   if (piUsername) return <>{children}</>;
 
   // Supabase fallback
-  const supabase = await createClient();
+  const supabase = createServerSupabaseClient();
   const { data } = await supabase.auth.getUser();
 
   if (!data.user) redirect("/auth/login?next=/dashboard");
