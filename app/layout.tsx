@@ -6,8 +6,8 @@ import Script from "next/script";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SnapLogic Engine | The World's First Pi-Native Data Terminal",
-  description: "SnapLogic Engine - Pi Network native data visualization platform",
+  title: "SnapLogic Engine | Pi-Native Data Terminal",
+  description: "SnapLogic Engine - Pi Network native platform",
 };
 
 export default function RootLayout({
@@ -18,37 +18,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Pi Browser SDK - KRİTİK! */}
-        <Script
-          src="https://sdk.minepi.com/pi-sdk.js"
-          strategy="beforeInteractive"
-        />
+        {/* Pi SDK - CRITICAL! Must be in HEAD */}
+        <script src="https://sdk.minepi.com/pi-sdk.js"></script>
       </head>
       <body className={inter.className}>
         {children}
 
-        {/* Google Analytics (opsiyonel) */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
+        {/* Pi SDK Init */}
+        <Script id="pi-init" strategy="afterInteractive">
           {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-XXXXXXX');
-          `}
-        </Script>
-
-        {/* Pi SDK Initialization */}
-        <Script id="pi-sdk-init" strategy="afterInteractive">
-          {`
-            // Pi SDK hazır olduğunda auth başlat
-            if (typeof window !== 'undefined' && window.Pi) {
+            if (typeof window !== 'undefined') {
               window.Pi.init({ 
                 version: "2.0",
-                sandbox: ${process.env.NODE_ENV !== 'production'} 
+                sandbox: false
               });
             }
           `}
