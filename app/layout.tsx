@@ -20,13 +20,13 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
 
-        {/* Pi SDK Yukleme */}
+        {/* Pi SDK Yükleme */}
         <Script
           src="https://sdk.minepi.com/pi-sdk.js"
           strategy="beforeInteractive"
         />
         
-        {/* Pi SDK Baslatma */}
+        {/* Pi SDK Başlatma */}
         <Script id="pi-init" strategy="afterInteractive">
           {`
             if (typeof window !== 'undefined' && window.Pi) {
