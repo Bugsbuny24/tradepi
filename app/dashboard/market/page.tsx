@@ -1,199 +1,106 @@
-"use client";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
-import { ShoppingCart, Zap, ArrowLeft, Wallet, CheckCircle } from "lucide-react";
-import Link from "next/link";
+'use client';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
-type Package = {
-  id: string;
-  code: string;
-  title: string;
-  price_try: number;
-  price_usd: number;
-  grants: any;
-};
-
-export default function MarketPage() {
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [loading, setLoading] = useState<string | null>(null);
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const supabase = createClient();
+  const [stats, setStats] = useState({
+    chartCount: 0,
+    credits: 0,
+    packageName: 'Ücretsiz Plan',
+    packagePrice: 0
+  });
 
   useEffect(() => {
-    async function getUser() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
       setUser(user);
-    }
-    getUser();
 
-    async function fetchPackages() {
-      const { data } = await supabase
-        .from("packages")
-        .select("*")
-        .eq("is_active", true)
-        .eq("sell_currency", "TRY")
-        .order("price_try", { ascending: true });
-      
-      setPackages(data || []);
-    }
-    fetchPackages();
-  }, []);
-
-  const handlePurchase = async (pkg: Package) => {
-    if (!user) {
-      alert("⚠️ Lütfen önce giriş yap!");
-      window.location.href = "/auth";
-      return;
-    }
-
-    setLoading(pkg.code);
-
-    try {
-      // Purchase intent oluştur
-      const { data: intent, error: intentError } = await supabase
-        .from("checkout_intents")
-        .insert({
-          user_id: user.id,
-          package_code: pkg.code,
-          amount: pkg.price_try,
-          currency: "TRY",
-          provider: "iyzico", // Gelecekte iyzico entegrasyonu
-          provider_ref: `temp_${Date.now()}`,
-          status: "pending"
-        })
-        .select()
+      // 1. Kalan Krediler (user_quotas)
+      const { data: quota } = await supabase
+        .from('user_quotas')
+        .select('credits_remaining')
+        .eq('user_id', user.id)
         .single();
 
-      if (intentError) throw intentError;
+      // 2. Grafik Sayısı (charts)
+      const { count } = await supabase
+        .from('charts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
-      // TODO: İyzico ödeme sayfasına yönlendir
-      alert(`💳 Ödeme sistemi yakında aktif!\n\nPaket: ${pkg.title}\nFiyat: ${pkg.price_try} TRY`);
-      
-      // Demo için - gerçekte iyzico'ya yönlendirilecek
-      // window.location.href = `/payment/${intent.id}`;
+      // 3. Aktif Paket Bilgisi (packages tablosundan TRY fiyatını alalım)
+      // Not: Normalde active_packages join yapılmalı ama şimdilik basitleştiriyoruz
+      const { data: activePkg } = await supabase
+        .from('active_packages')
+        .select('title, price_pi') // Şemada price_try yoksa price_pi'yi placeholder yaparız
+        .eq('id', user.id) // active_packages id ile user_id eşleşiyor varsayıyoruz
+        .maybeSingle();
 
-    } catch (error: any) {
-      console.error("Purchase error:", error);
-      alert(`❌ Hata: ${error.message}`);
-    } finally {
-      setLoading(null);
+      setStats({
+        chartCount: count || 0,
+        credits: quota?.credits_remaining || 0,
+        packageName: activePkg?.title || 'Başlangıç Paketi',
+        packagePrice: 0 // Şimdilik 0 gösteriyoruz
+      });
+
+      setLoading(false);
     }
-  };
+
+    loadData();
+  }, []);
+
+  if (loading) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Yükleniyor...</div>;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 font-mono">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link 
-            href="/dashboard" 
-            className="inline-flex items-center gap-2 text-gray-500 hover:text-yellow-500 transition-colors mb-4"
-          >
-            <ArrowLeft size={16} />
-            <span className="text-xs uppercase font-bold">Dashboard</span>
+    <div className="min-h-screen bg-black text-gray-100 p-8">
+      <header className="flex justify-between items-center mb-10 border-b border-gray-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Genel Bakış</h1>
+          <p className="text-gray-400">Hoş geldin, {user.email}</p>
+        </div>
+        <Link href="/dashboard/market" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2">
+          Paket Yükselt (TL)
+        </Link>
+      </header>
+
+      {/* İstatistikler - Sadece TL ve Kredi */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <StatCard title="Mevcut Paket" value={stats.packageName} icon="📦" />
+        <StatCard title="Kalan Kredi" value={stats.credits.toString()} icon="⚡" color="text-yellow-400" />
+        <StatCard title="Toplam Grafik" value={stats.chartCount.toString()} icon="bar_chart" color="text-indigo-400" />
+      </div>
+
+      <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-8 text-center">
+        <h3 className="text-xl font-bold text-white mb-2">Hızlı İşlemler</h3>
+        <p className="text-gray-400 mb-6">Projeni büyütmek için kredi yükle veya yeni grafik oluştur.</p>
+        <div className="flex justify-center gap-4">
+          <Link href="/dashboard/designer" className="bg-white text-black px-6 py-3 rounded-lg font-bold hover:bg-gray-200 transition-colors">
+            Grafik Oluştur
           </Link>
-          
-          <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-black italic text-yellow-500 uppercase mb-2">
-              SnapCore Market
-            </h1>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">
-              Premium Packages
-            </p>
-          </div>
-        </div>
-
-        {/* User Info */}
-        {user && (
-          <div className="bg-[#0A0A0A] border border-white/5 p-4 rounded-2xl mb-8">
-            <div className="flex items-center gap-3">
-              <Wallet className="text-yellow-500" size={20} />
-              <div>
-                <div className="text-xs text-gray-500 uppercase font-bold">Logged in as</div>
-                <div className="text-sm font-mono text-white">{user.email}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Packages Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {packages.map((pkg) => (
-            <div 
-              key={pkg.id} 
-              className="bg-[#0A0A0A] border border-white/5 p-6 md:p-8 rounded-[40px] hover:border-yellow-500/30 transition-all"
-            >
-              {/* Package Code */}
-              <div className="text-[9px] text-gray-700 font-black mb-2 uppercase tracking-wider">
-                {pkg.code}
-              </div>
-
-              {/* Package Title */}
-              <h3 className="text-lg md:text-xl font-black uppercase italic mb-4 text-white">
-                {pkg.title}
-              </h3>
-
-              {/* Grants Preview */}
-              {pkg.grants && (
-                <div className="mb-6">
-                  <div className="text-[9px] text-gray-600 font-bold mb-2 uppercase">Includes:</div>
-                  <div className="space-y-1">
-                    {Object.entries(pkg.grants).slice(0, 4).map(([key, value]) => (
-                      <div key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
-                        <CheckCircle size={10} className="text-green-500" />
-                        <span>{key.replace(/_/g, ' ')}: {String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Price */}
-              <div className="text-2xl md:text-3xl font-black text-yellow-500 mb-6">
-                {pkg.price_try} <span className="text-lg">TRY</span>
-              </div>
-
-              {/* Purchase Button */}
-              <button 
-                onClick={() => handlePurchase(pkg)}
-                disabled={loading === pkg.code}
-                className="w-full bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading === pkg.code ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Zap size={14} className="animate-pulse" />
-                    Processing...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <ShoppingCart size={14} />
-                    Purchase Now
-                  </span>
-                )}
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* No packages message */}
-        {packages.length === 0 && (
-          <div className="text-center py-20">
-            <div className="text-gray-600 text-sm uppercase font-bold mb-4">
-              No packages available
-            </div>
-            <p className="text-gray-700 text-xs">
-              Packages are being prepared. Check back soon!
-            </p>
-          </div>
-        )}
-
-        {/* Info Footer */}
-        <div className="mt-12 text-center">
-          <div className="text-[9px] text-gray-700 font-bold uppercase tracking-wider">
-            💳 Secure payments powered by İyzico
-          </div>
+          <Link href="/dashboard/market" className="border border-gray-700 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors">
+            Mağazaya Git
+          </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value, icon, color = "text-white" }: any) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
+      <div className="flex justify-between items-start mb-2">
+        <h3 className="text-gray-400 text-sm font-medium">{title}</h3>
+        <span className="text-2xl">{icon}</span>
+      </div>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   );
 }
