@@ -76,3 +76,16 @@ export default function DashboardPage() {
     </div>
   );
 }
+// Dashboard'daki liste kısmına şu başlığı ve mantığı ekle kanka:
+<div className="flex justify-between items-end mb-8">
+  <div className="flex gap-8">
+    <button className="text-sm font-black uppercase italic tracking-widest border-b-2 border-yellow-500 pb-2">Analiz Pazarı</button>
+    <button className="text-sm font-black uppercase italic tracking-widest text-gray-600 pb-2">Veri Madenlerim</button>
+  </div>
+</div>
+
+{/* Kartların içine kilitliyse fiyat bilgisini ekle */}
+<div className="flex justify-between items-center mt-6">
+    <span className="text-[9px] font-black uppercase tracking-widest text-gray-700">Analiz Bedeli</span>
+    <span className="text-xs font-black italic text-yellow-500">{chart.is_locked ? "1.00 PI" : "ÜCRETSİZ"}</span>
+</div>
