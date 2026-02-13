@@ -1,5 +1,5 @@
-// app/lib/snap-core-init.ts (Yeni dosya oluştur)
-import { supabase } from './supabase';
+// @/lib/supabase yolunu kullanarak import hatasını çözüyoruz
+import { supabase } from '@/lib/supabase';
 
 /**
  * SnapLogic Core Engine v1.0
@@ -7,7 +7,7 @@ import { supabase } from './supabase';
  */
 
 export const initializeSnapEngine = async (userId: string) => {
-  // 1. Kullanıcının paket yetkilerini kontrol et (Role-Based Access)
+  // Kullanıcının paket yetkilerini kontrol et
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -16,7 +16,7 @@ export const initializeSnapEngine = async (userId: string) => {
 
   const userRole = profile?.role || 'none';
 
-  // 2. SnapScript v0 Runtime Kapasitesini Tanımla
+  // SnapScript v0 Runtime Kapasitesini Tanımla
   const engineConfig = {
     version: "1.0.0-v0",
     reactiveMode: userRole !== 'none' ? true : false,
@@ -30,7 +30,6 @@ export const initializeSnapEngine = async (userId: string) => {
 
 /**
  * Projeyi Mühürle (Sealing)
- * README'de belirtilen Snap-Architect misyonuna uygun kayıt
  */
 export const sealSnapProject = async (chartId: string, scriptContent: string) => {
   const { error } = await supabase
