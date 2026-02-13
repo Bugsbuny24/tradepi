@@ -1,43 +1,36 @@
-// app/view/[id]/page.tsx - Güncellenmiş Reaktif Motor
+'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useParams } from 'next/navigation';
 
-export default function SnapView({ params }: { params: { id: string } }) {
-  const [scriptData, setScriptData] = useState<string>('');
+export default function TerminalView() {
+  const { id } = useParams();
+  const [chart, setChart] = useState<any>(null);
+  const [script, setScript] = useState('');
 
   useEffect(() => {
-    async function fetchSnapScript() {
-      const { data } = await supabase
-        .from('chart_scripts')
-        .select('script')
-        .eq('chart_id', params.id)
-        .single();
-      
-      if (data?.script) {
-        // SnapScript v0: Reaktif dilin çalıştırılması
-        // Güvenli bir Sandbox içinde scripti eval ediyoruz
-        setScriptData(data.script);
-      }
+    async function load() {
+      const { data: c } = await supabase.from('charts').select('*').eq('id', id).single();
+      const { data: s } = await supabase.from('chart_scripts').select('script').eq('chart_id', id).single();
+      if (c) setChart(c);
+      if (s) setScript(s.script);
     }
-    fetchSnapScript();
-  }, [params.id]);
+    load();
+  }, [id]);
+
+  if (!chart) return <div className="bg-black min-h-screen text-red-900 p-10">ERROR: NO_DATA_STREAM</div>;
 
   return (
-    <div className="bg-black min-h-screen text-green-500 p-4 font-mono overflow-hidden">
-      {/* Terminal Başlığı */}
-      <div className="border-b border-green-900 pb-2 mb-4 text-xs opacity-50 flex justify-between">
-        <span>SNPLOGIC_TERMINAL_V1.0</span>
-        <span>STATUS: ACTIVE_REACTIVE_ENGINE</span>
+    <div className="bg-black min-h-screen text-green-500 font-mono p-6">
+      <div className="flex justify-between border-b border-green-900/30 pb-2 text-[10px] opacity-40">
+        <span>ID: {chart.id}</span>
+        <span>SNAPCORE_ENGINE_V1.0</span>
       </div>
-      
-      {/* Dinamik Widget Alanı */}
-      <div id="snap-core-runtime" className="w-full h-[80vh] flex items-center justify-center">
-         {/* SnapScript buradaki DOM elemanlarını manipüle eder */}
-         <pre className="text-[10px] animate-pulse">{scriptData || 'Veri Bekleniyor...'}</pre>
-      </div>
-
-      <div className="absolute bottom-4 left-4 text-[8px] text-gray-700">
-        POWERED BY SNAPLOGIC SNAP-ARCHITECT ENGINE
+      <div className="flex flex-col items-center justify-center h-[80vh]">
+        <h1 className="text-2xl mb-10 tracking-widest">{chart.title}</h1>
+        <div className="p-10 border border-green-500/20 rounded-full shadow-[0_0_50px_rgba(34,197,94,0.1)]">
+           <pre className="text-xs">{script || '// Processing...'}</pre>
+        </div>
       </div>
     </div>
   );
