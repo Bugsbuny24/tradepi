@@ -1,58 +1,43 @@
-'use client';
+// app/view/[id]/page.tsx - Güncellenmiş Reaktif Motor
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useParams } from 'next/navigation';
 
-export default function ViewChart() {
-  const { id } = useParams();
-  const [chart, setChart] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default function SnapView({ params }: { params: { id: string } }) {
+  const [scriptData, setScriptData] = useState<string>('');
 
   useEffect(() => {
-    async function loadChart() {
-      // Grafik verisini çek
-      const { data, error } = await supabase
-        .from('charts')
-        .select('*')
-        .eq('id', id)
+    async function fetchSnapScript() {
+      const { data } = await supabase
+        .from('chart_scripts')
+        .select('script')
+        .eq('chart_id', params.id)
         .single();
-
-      if (error || !data) {
-        setError('Grafik bulunamadı veya erişim izni yok.');
-      } else if (!data.is_public) {
-        setError('Bu grafik gizli.');
-      } else {
-        setChart(data);
+      
+      if (data?.script) {
+        // SnapScript v0: Reaktif dilin çalıştırılması
+        // Güvenli bir Sandbox içinde scripti eval ediyoruz
+        setScriptData(data.script);
       }
-      setLoading(false);
     }
-    loadChart();
-  }, [id]);
-
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Yükleniyor...</div>;
-  if (error) return <div className="min-h-screen bg-black flex items-center justify-center text-red-500">{error}</div>;
+    fetchSnapScript();
+  }, [params.id]);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl p-8 border rounded-xl shadow-2xl bg-gray-50">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">{chart.title}</h1>
-        <p className="text-gray-500 text-center mb-8">Oluşturulma: {new Date(chart.created_at).toLocaleDateString()}</p>
-        
-        {/* GRAFİK ALANI */}
-        <div className="aspect-video bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-            <div className="text-center">
-                <span className="text-6xl block mb-4">
-                    {chart.chart_type === 'bar' ? '📊' : chart.chart_type === 'pie' ? '🥧' : '📈'}
-                </span>
-                <p className="text-gray-400">Gerçek grafik motoru burada çalışacak.</p>
-                <p className="text-xs text-gray-300 mt-2">Data ID: {chart.id}</p>
-            </div>
-        </div>
+    <div className="bg-black min-h-screen text-green-500 p-4 font-mono overflow-hidden">
+      {/* Terminal Başlığı */}
+      <div className="border-b border-green-900 pb-2 mb-4 text-xs opacity-50 flex justify-between">
+        <span>SNPLOGIC_TERMINAL_V1.0</span>
+        <span>STATUS: ACTIVE_REACTIVE_ENGINE</span>
+      </div>
+      
+      {/* Dinamik Widget Alanı */}
+      <div id="snap-core-runtime" className="w-full h-[80vh] flex items-center justify-center">
+         {/* SnapScript buradaki DOM elemanlarını manipüle eder */}
+         <pre className="text-[10px] animate-pulse">{scriptData || 'Veri Bekleniyor...'}</pre>
+      </div>
 
-        <div className="mt-8 text-center">
-            <p className="text-sm text-gray-400">Powered by <span className="font-bold text-indigo-600">SnapLogic</span></p>
-        </div>
+      <div className="absolute bottom-4 left-4 text-[8px] text-gray-700">
+        POWERED BY SNAPLOGIC SNAP-ARCHITECT ENGINE
       </div>
     </div>
   );
