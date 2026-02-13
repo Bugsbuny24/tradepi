@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="tr" className="dark">
       <head>
-        {/* Pi Network SDK - afterInteractive kullanarak runtime hatalarını önleriz */}
+        {/* Pi SDK - afterInteractive stratejisi Pi Browser uyumluluğu için en güvenlisidir */}
         <Script 
           src="https://sdk.minepi.com/pi-sdk.js" 
           strategy="afterInteractive"
