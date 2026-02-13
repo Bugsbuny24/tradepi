@@ -1,104 +1,54 @@
-import Link from "next/link";
-import { ArrowRight, Zap, BarChart3, Globe } from "lucide-react";
+import Link from 'next/link';
+import { Activity, Database, Shield, Zap, ArrowRight } from 'lucide-react';
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-mono">
+    <div className="min-h-screen flex flex-col bg-black text-gray-200 selection:bg-indigo-500 selection:text-white">
+      
+      {/* Navbar */}
+      <nav className="border-b border-gray-800 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-black/50 sticky top-0 z-50">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <Zap className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-xl font-bold tracking-tight text-white">SnapLogic</span>
+        </div>
+        <div className="flex gap-4">
+          <Link href="/login" className="px-4 py-2 text-sm hover:text-white transition-colors">Giriş Yap</Link>
+          <Link href="/register" className="px-4 py-2 text-sm bg-white text-black font-semibold rounded-md hover:bg-gray-200 transition-colors">
+            Kayıt Ol
+          </Link>
+        </div>
+      </nav>
+
       {/* Hero Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Logo/Badge */}
-          <div className="mb-8">
-            <div className="inline-block bg-yellow-500/10 border border-yellow-500/30 rounded-full px-6 py-2">
-              <span className="text-yellow-500 text-xs font-black uppercase tracking-wider">
-                Pi Network Native
-              </span>
-            </div>
-          </div>
+      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 py-20 relative overflow-hidden">
+        {/* Arka plan efekti */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[120px] -z-10" />
 
-          {/* Main Heading */}
-          <h1 className="text-5xl md:text-7xl font-black italic text-white mb-6 uppercase leading-tight">
-            SnapLogic
-            <span className="block text-yellow-500">Engine v1.0</span>
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-gray-400 text-lg md:text-xl mb-12 max-w-2xl mx-auto">
-            The World's First Pi-Native Data Visualization Terminal
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
-            <Link
-              href="/dashboard"
-              className="group bg-white text-black px-8 py-4 rounded-2xl font-black text-sm uppercase hover:bg-yellow-500 transition-all flex items-center justify-center gap-2"
-            >
-              Launch Dashboard
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-            
-            <Link
-              href="/auth"
-              className="bg-transparent border-2 border-white/20 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase hover:border-yellow-500/50 transition-all"
-            >
-              Sign In
-            </Link>
-          </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Feature 1 */}
-            <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-3xl hover:border-yellow-500/30 transition-all">
-              <div className="bg-yellow-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                <BarChart3 className="text-yellow-500" size={24} />
-              </div>
-              <h3 className="text-white font-black uppercase text-sm mb-2">
-                SnapScript v0
-              </h3>
-              <p className="text-gray-500 text-xs">
-                Reactive computation engine for real-time data visualization
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-3xl hover:border-yellow-500/30 transition-all">
-              <div className="bg-yellow-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                <Zap className="text-yellow-500" size={24} />
-              </div>
-              <h3 className="text-white font-black uppercase text-sm mb-2">
-                Pi-Native Billing
-              </h3>
-              <p className="text-gray-500 text-xs">
-                Blockchain-based automatic subscription & quota management
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-3xl hover:border-yellow-500/30 transition-all">
-              <div className="bg-yellow-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                <Globe className="text-yellow-500" size={24} />
-              </div>
-              <h3 className="text-white font-black uppercase text-sm mb-2">
-                Universal Embed
-              </h3>
-              <p className="text-gray-500 text-xs">
-                One-line integration for any web environment
-              </p>
-            </div>
-          </div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-800 bg-gray-900/50 text-xs text-gray-400 mb-8">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          Sistem Online v2.0
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="border-t border-white/5 py-8">
-        <div className="container mx-auto px-4">
-          <div className="text-center">
-            <p className="text-[9px] text-gray-700 font-bold uppercase tracking-wider">
-              © 2026 SnapLogic Global Operations • Built for the Pi Network Ecosystem
-            </p>
-          </div>
+        <h1 className="text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500 mb-6 max-w-4xl">
+          Veri Görselleştirmenin <br /> Yeni Motoru
+        </h1>
+        
+        <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-10 leading-relaxed">
+          Kod yazmadan verilerinizi bağlayın, analiz edin ve yönetin. 
+          SnapLogic Engine ile işletmenizin tüm metrikleri tek bir terminalde.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all flex items-center gap-2 group">
+            Hemen Başla 
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+          <button className="px-8 py-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 rounded-xl font-medium transition-all">
+            Dokümantasyon
+          </button>
         </div>
-      </div>
-    </div>
-  );
-}
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-24 w-full max-w-5xl
