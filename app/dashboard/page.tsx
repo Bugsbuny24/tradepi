@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { BarChart3, Plus, ArrowUpRight, ShieldCheck, Wallet, Globe } from "lucide-react";
+import { BarChart3, Plus, ArrowUpRight, ShieldCheck, Wallet, Globe, Zap } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -12,13 +12,34 @@ export default function DashboardPage() {
   const [view, setView] = useState<'explore' | 'my'>('explore');
   const supabase = createClient();
 
+  // --- PORTAL ONAY FONKSİYONU (BURADA OLMASI ŞART) ---
+  const handlePortalTestPayment = async () => {
+    try {
+      if (!(window as any).Pi) return alert("Kanka Pi Browser ile girmelisin!");
+
+      const payment = await (window as any).Pi.createPayment({
+        amount: 1, 
+        memo: "Portal Onay Test Ödemesi",
+        metadata: { type: "portal_validation" }
+      }, {
+        onReadyForServerApproval: (pId: string) => console.log("Onay Bekliyor:", pId),
+        onReadyForServerCompletion: (pId: string, txid: string) => {
+          alert("İŞLEM BAŞARILI! 🚀\nŞimdi Portala git, 10. adım yeşil olmuş olacak.");
+        },
+        onCancel: () => console.log("İptal edildi"),
+        onError: (e: any) => alert("Pi Hatası: " + e.message)
+      });
+    } catch (e) {
+      alert("Cüzdan tetiklenemedi kanka!");
+    }
+  };
+  // ------------------------------------------------
+
   useEffect(() => {
     async function fetchData() {
-      // 1. Admin Kontrolü
       const { data: adminData } = await supabase.rpc('is_admin');
       setIsAdmin(adminData);
 
-      // 2. Grafikleri Çek
       const { data } = await supabase
         .from("charts")
         .select("*")
@@ -40,31 +61,36 @@ export default function DashboardPage() {
               Snap<span className="text-yellow-500">Core</span> Terminal
             </h1>
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">
-              Sistem Çevrimiçi • Veri Borsası v1.0
+              Sistem Çevrimiçi • Portal Doğrulama Modu
             </p>
           </div>
           <div className="flex items-center gap-4">
+            {/* PORTAL ONAY BUTONU - TAM BURADA */}
+            <button 
+              onClick={handlePortalTestPayment}
+              className="bg-orange-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg shadow-orange-500/20"
+            >
+              <Zap size={14} /> PORTAL ONAY (10. ADIM)
+            </button>
+
             {isAdmin && (
-              <Link href="/dashboard/admin" className="bg-red-500/10 text-red-500 border border-red-500/20 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2">
-                <ShieldCheck size={14} /> Master Admin
+              <Link href="/dashboard/admin" className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
+                <ShieldCheck size={14} />
               </Link>
             )}
-            <Link href="/dashboard/settings" className="p-3 bg-white/5 border border-white/10 rounded-2xl text-gray-500 hover:text-yellow-500 transition-all">
-              <Wallet size={18} />
-            </Link>
             <Link href="/dashboard/designer" className="bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2">
               <Plus size={14} /> Yeni Grafik
             </Link>
           </div>
         </div>
 
-        {/* SEKMELER - İnsanlar için Kazanç Alanı */}
+        {/* SEKMELER */}
         <div className="flex gap-8 mb-10 border-b border-white/5">
           <button 
             onClick={() => setView('explore')}
             className={`pb-4 text-[10px] font-black uppercase tracking-widest transition-all ${view === 'explore' ? 'text-yellow-500 border-b-2 border-yellow-500' : 'text-gray-600'}`}
           >
-            Analiz Pazarı (Keşfet)
+            Analiz Pazarı
           </button>
           <button 
             onClick={() => setView('my')}
@@ -74,48 +100,34 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* ANALİZ LİSTESİ */}
+        {/* LİSTE */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading ? (
-            <div className="col-span-full py-20 text-center animate-pulse text-gray-700 font-black uppercase text-[10px]">Sinyal taranıyor...</div>
+            <div className="col-span-full py-20 text-center animate-pulse text-gray-700 font-black uppercase text-[10px]">Veriler Mühürleniyor...</div>
           ) : charts.length > 0 ? (
             charts.map((chart) => (
               <Link key={chart.id} href={`/dashboard/chart/${chart.id}`}>
-                <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-[40px] hover:border-yellow-500/30 transition-all group relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-100 transition-all">
-                    <ArrowUpRight size={20} className="text-yellow-500" />
-                  </div>
+                <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-[40px] hover:border-yellow-500/30 transition-all group relative">
                   <BarChart3 className="text-yellow-500 mb-6" size={24} />
                   <h3 className="text-sm font-black uppercase italic tracking-widest mb-4 group-hover:text-yellow-500 transition-all">
                     {chart.title}
                   </h3>
-                  
-                  {/* Fiyat Bilgisi */}
                   <div className="flex justify-between items-center mt-6 pt-6 border-t border-white/5">
-                    <div className="flex flex-col">
-                        <span className="text-[7px] text-gray-700 font-black uppercase tracking-widest">Erişim Bedeli</span>
-                        <span className="text-xs font-black italic text-yellow-500">
-                            {chart.is_locked ? `${chart.price || '1.0'} PI` : "ÜCRETSİZ"}
-                        </span>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-[7px] font-black uppercase ${chart.is_locked ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
-                        {chart.is_locked ? "Kilitli" : "Açık"}
-                    </div>
+                    <span className="text-[7px] text-gray-700 font-black uppercase">Erişim Bedeli</span>
+                    <span className="text-xs font-black italic text-yellow-500">
+                        {chart.is_locked ? `${chart.price || '1.0'} PI` : "AÇIK"}
+                    </span>
                   </div>
                 </div>
               </Link>
             ))
           ) : (
-            <div className="col-span-full bg-[#0A0A0A] border border-white/5 rounded-[40px] p-20 text-center">
+            <div className="col-span-full text-center py-20">
               <Globe className="mx-auto text-gray-800 mb-6" size={48} />
-              <h2 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4">Pazarda Henüz Analiz Yok</h2>
-              <Link href="/dashboard/designer" className="text-yellow-500 text-[10px] font-black uppercase tracking-widest border-b border-yellow-500/20 pb-1">
-                İLK VERİNİ MÜHÜRLE VE KAZANMAYA BAŞLA →
-              </Link>
+              <p className="text-gray-600 text-[10px] font-black uppercase">Sistemde henüz mühürlü analiz yok.</p>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
