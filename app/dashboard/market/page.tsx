@@ -1,104 +1,168 @@
+"use client";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
+import { ShoppingCart, Zap, ArrowLeft, Wallet, CheckCircle } from "lucide-react";
 import Link from "next/link";
-import { ArrowRight, Zap, BarChart3, Globe } from "lucide-react";
 
-export default function HomePage() {
-  return (
-    <div className="min-h-screen bg-[#050505] text-white font-mono">
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Logo/Badge */}
-          <div className="mb-8">
-            <div className="inline-block bg-yellow-500/10 border border-yellow-500/30 rounded-full px-6 py-2">
-              <span className="text-yellow-500 text-xs font-black uppercase tracking-wider">
-                Pi Network Native
-              </span>
-            </div>
-          </div>
+type Package = {
+  id: string;
+  code: string;
+  title: string;
+  price_pi: number;
+  grants: any;
+};
 
-          {/* Main Heading */}
-          <h1 className="text-5xl md:text-7xl font-black italic text-white mb-6 uppercase leading-tight">
-            SnapLogic
-            <span className="block text-yellow-500">Engine v1.0</span>
-          </h1>
+export default function MarketPage() {
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
 
-          {/* Subtitle */}
-          <p className="text-gray-400 text-lg md:text-xl mb-12 max-w-2xl mx-auto">
-            The World's First Pi-Native Data Visualization Terminal
-          </p>
+  useEffect(() => {
+    async function getUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    }
+    getUser();
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
-            <Link
-              href="/dashboard"
-              className="group bg-white text-black px-8 py-4 rounded-2xl font-black text-sm uppercase hover:bg-yellow-500 transition-all flex items-center justify-center gap-2"
-            >
-              Launch Dashboard
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
+    async function fetchPackages() {
+      const { data } = await supabase
+        .from("active_packages")
+        .select("*")
+        .order("price_pi", { ascending: true });
+      setPackages(data || []);
+    }
+    fetchPackages();
+  }, []);
+
+  const handlePurchase = async (pkg: Package) => {
+    if (!user) {
+      alert("Lütfen önce giriş yap!");
+      return;
+    }
+
+    if (!(window as any).Pi) {
+      alert("⚠️ Bu uygulama sadece Pi Browser'da çalışır!");
+      return;
+    }
+
+    setLoading(pkg.code);
+
+    try {
+      const { data: intent, error: intentError } = await supabase
+        .from("purchase_intents")
+        .insert({
+          user_id: user.id,
+          package_code: pkg.code,
+          amount_pi: pkg.price_pi,
+          txid: `temp_${Date.now()}`,
+          status: "pending"
+        })
+        .select()
+        .single();
+
+      if (intentError) throw intentError;
+
+      const payment = await (window as any).Pi.createPayment({
+        amount: pkg.price_pi,
+        memo: `${pkg.title} - SnapLogic Package`,
+        metadata: { 
+          packageCode: pkg.code,
+          intentId: intent.id,
+          userId: user.id
+        }
+      }, {
+        onReadyForServerApproval: async (paymentId: string) => {
+          const res = await fetch("/api/payments/approve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId, intentId: intent.id })
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error("Approval failed");
+        },
+
+        onReadyForServerCompletion: async (paymentId: string, txid: string) => {
+          const res = await fetch("/api/payments/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId, txid, intentId: intent.id })
+          });
+          const data = await res.json();
+          
+          if (data.ok) {
+            await supabase
+              .from("purchase_intents")
+              .update({ status: "completed", txid, decided_at: new Date().toISOString() })
+              .eq("id", intent.id);
             
-            <Link
-              href="/auth"
-              className="bg-transparent border-2 border-white/20 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase hover:border-yellow-500/50 transition-all"
-            >
-              Sign In
-            </Link>
-          </div>
+            alert(`🎉 BAŞARILI! ${pkg.title} satın alındı!`);
+            window.location.reload();
+          }
+        },
 
-          {/* Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Feature 1 */}
-            <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-3xl hover:border-yellow-500/30 transition-all">
-              <div className="bg-yellow-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                <BarChart3 className="text-yellow-500" size={24} />
-              </div>
-              <h3 className="text-white font-black uppercase text-sm mb-2">
-                SnapScript v0
-              </h3>
-              <p className="text-gray-500 text-xs">
-                Reactive computation engine for real-time data visualization
-              </p>
-            </div>
+        onCancel: async () => {
+          await supabase
+            .from("purchase_intents")
+            .update({ status: "cancelled", decided_at: new Date().toISOString() })
+            .eq("id", intent.id);
+          alert("Ödeme iptal edildi.");
+        },
 
-            {/* Feature 2 */}
-            <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-3xl hover:border-yellow-500/30 transition-all">
-              <div className="bg-yellow-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                <Zap className="text-yellow-500" size={24} />
-              </div>
-              <h3 className="text-white font-black uppercase text-sm mb-2">
-                Pi-Native Billing
-              </h3>
-              <p className="text-gray-500 text-xs">
-                Blockchain-based automatic subscription & quota management
-              </p>
-            </div>
+        onError: async (error: any) => {
+          await supabase
+            .from("purchase_intents")
+            .update({ status: "failed", decided_at: new Date().toISOString() })
+            .eq("id", intent.id);
+          alert(`Hata: ${error.message}`);
+        }
+      });
+    } catch (error: any) {
+      alert(`Hata: ${error.message}`);
+    } finally {
+      setLoading(null);
+    }
+  };
 
-            {/* Feature 3 */}
-            <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-3xl hover:border-yellow-500/30 transition-all">
-              <div className="bg-yellow-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                <Globe className="text-yellow-500" size={24} />
-              </div>
-              <h3 className="text-white font-black uppercase text-sm mb-2">
-                Universal Embed
-              </h3>
-              <p className="text-gray-500 text-xs">
-                One-line integration for any web environment
-              </p>
-            </div>
+  return (
+    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 font-mono">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-500 hover:text-yellow-500">
+            <ArrowLeft size={16} />
+            <span className="text-xs uppercase font-bold">Dashboard</span>
+          </Link>
+          
+          <div className="text-center mt-4">
+            <h1 className="text-4xl font-black italic text-yellow-500 uppercase">Market</h1>
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="border-t border-white/5 py-8">
-        <div className="container mx-auto px-4">
-          <div className="text-center">
-            <p className="text-[9px] text-gray-700 font-bold uppercase tracking-wider">
-              © 2026 SnapLogic Global Operations • Built for the Pi Network Ecosystem
-            </p>
+        {user && (
+          <div className="bg-[#0A0A0A] border border-white/5 p-4 rounded-2xl mb-8">
+            <Wallet className="text-yellow-500 inline mr-2" size={20} />
+            <span className="text-sm">{user.email}</span>
           </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {packages.map((pkg) => (
+            <div key={pkg.id} className="bg-[#0A0A0A] border border-white/5 p-8 rounded-3xl">
+              <div className="text-xs text-gray-700 mb-2">{pkg.code}</div>
+              <h3 className="text-xl font-black uppercase mb-4">{pkg.title}</h3>
+              <div className="text-3xl font-black text-yellow-500 mb-6">{pkg.price_pi} PI</div>
+              
+              <button 
+                onClick={() => handlePurchase(pkg)}
+                disabled={loading === pkg.code}
+                className="w-full bg-white text-black py-4 rounded-2xl font-black text-xs uppercase hover:bg-yellow-500 disabled:opacity-50"
+              >
+                {loading === pkg.code ? "Processing..." : "Purchase Now"}
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-}
+          }
