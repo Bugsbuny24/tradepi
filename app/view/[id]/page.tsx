@@ -5,32 +5,35 @@ import { useParams } from 'next/navigation';
 
 export default function TerminalView() {
   const { id } = useParams();
-  const [chart, setChart] = useState<any>(null);
-  const [script, setScript] = useState('');
+  const [data, setData] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
-      const { data: c } = await supabase.from('charts').select('*').eq('id', id).single();
-      const { data: s } = await supabase.from('chart_scripts').select('script').eq('chart_id', id).single();
-      if (c) setChart(c);
-      if (s) setScript(s.script);
+      const { data: c } = await supabase.from('charts').select('*, chart_scripts(script)').eq('id', id).single();
+      if (c) setData(c);
     }
     load();
   }, [id]);
 
-  if (!chart) return <div className="bg-black min-h-screen text-red-900 p-10">ERROR: NO_DATA_STREAM</div>;
+  if (!data) return <div className="bg-black min-h-screen text-red-500 p-10 font-mono">ERR: STREAM_OFFLINE</div>;
 
   return (
-    <div className="bg-black min-h-screen text-green-500 font-mono p-6">
-      <div className="flex justify-between border-b border-green-900/30 pb-2 text-[10px] opacity-40">
-        <span>ID: {chart.id}</span>
-        <span>SNAPCORE_ENGINE_V1.0</span>
+    <div className="bg-black min-h-screen text-green-500 font-mono p-4 flex flex-col items-center justify-center overflow-hidden">
+      <div className="absolute top-4 left-4 text-[10px] opacity-30 tracking-widest uppercase">
+        SnapLogic Engine v1.0 // Protocol_Active
       </div>
-      <div className="flex flex-col items-center justify-center h-[80vh]">
-        <h1 className="text-2xl mb-10 tracking-widest">{chart.title}</h1>
-        <div className="p-10 border border-green-500/20 rounded-full shadow-[0_0_50px_rgba(34,197,94,0.1)]">
-           <pre className="text-xs">{script || '// Processing...'}</pre>
+      
+      <div className="p-12 border border-green-500/10 rounded-full shadow-[0_0_100px_rgba(34,197,94,0.05)] relative z-10">
+        <h1 className="text-3xl mb-8 text-center text-white font-black tracking-widest">{data.title}</h1>
+        <div className="bg-black/50 p-6 rounded-lg border border-green-500/20">
+          <pre className="text-xs text-green-400">
+            {data.chart_scripts?.[0]?.script || '// Ready for data input...'}
+          </pre>
         </div>
+      </div>
+
+      <div className="mt-12 text-[10px] text-gray-700 animate-pulse">
+        REACTIVE COMPUTATION ACTIVE [SnapScript v0]
       </div>
     </div>
   );
