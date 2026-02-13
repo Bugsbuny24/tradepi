@@ -1,31 +1,34 @@
 "use client";
 
 export default function Page() {
-  const handleAuth = async () => {
-    // 1. SDK var mı kontrol et
-    if (typeof window !== "undefined" && window.Pi) {
-      try {
-        // 2. Pi SDK Başlat (Version belirtmek şarttır)
-        window.Pi.init({ version: "1.5", sandbox: true });
+  const pay = async () => {
+    if (!window.Pi) {
+      alert("Pi SDK yok");
+      return;
+    }
 
-        // 3. Kimlik Doğrulama
-        const scopes = ['username', 'payments'];
-        const auth = await window.Pi.authenticate(scopes, (payment: any) => {
-          console.log("Eksik ödeme:", payment);
-        });
-        
-        console.log("Giriş Başarılı:", auth.user.username);
-      } catch (err) {
-        alert("Giriş başarısız! Pi Browser kullandığınızdan emin olun.");
-      }
-    } else {
-      alert("Pi SDK henüz yüklenmedi, lütfen saniyeler sonra tekrar deneyin.");
+    window.Pi.init({ version: "1.5", sandbox: false });
+
+    try {
+      const payment = await window.Pi.createPayment({
+        amount: 1,
+        memo: "Test payment",
+        metadata: { orderId: "order123" }
+      });
+
+      // paymentId backend'e gönderilecek
+      await fetch("/api/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId: payment.identifier })
+      });
+
+      alert("Ödeme isteği gönderildi");
+    } catch (e) {
+      console.error(e);
+      alert("Ödeme iptal edildi");
     }
   };
 
-  return (
-    <button onClick={handleAuth}>
-      HEMEN BAŞLA
-    </button>
-  );
+  return <button onClick={pay}>1 Pi Öde</button>;
 }
