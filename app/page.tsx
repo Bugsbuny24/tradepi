@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Activity, Database, Shield, Zap, ArrowRight } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -8,8 +7,8 @@ export default function Home() {
       {/* Navbar */}
       <nav className="border-b border-gray-800 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-black/50 sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white">
+            S
           </div>
           <span className="text-xl font-bold tracking-tight text-white">SnapLogic</span>
         </div>
@@ -40,10 +39,10 @@ export default function Home() {
           SnapLogic Engine ile işletmenizin tüm metrikleri tek bir terminalde.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all flex items-center gap-2 group">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 group">
             Hemen Başla 
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <span>→</span>
           </button>
           <button className="px-8 py-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 rounded-xl font-medium transition-all">
             Dokümantasyon
@@ -51,4 +50,38 @@ export default function Home() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-24 w-full max-w-5xl
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-24 w-full max-w-5xl px-4 text-left">
+          <FeatureCard 
+            title="Supabase Entegrasyonu"
+            desc="Veritabanınıza saniyeler içinde bağlanın. Gerçek zamanlı veri akışı."
+          />
+          <FeatureCard 
+            title="Kurumsal Güvenlik"
+            desc="Uçtan uca şifreleme ve yetkilendirme katmanları ile tam koruma."
+          />
+          <FeatureCard 
+            title="Canlı Analitik"
+            desc="Sürükle-bırak panelleri ile verilerinizi anlık izleyin."
+          />
+        </div>
+      </main>
+
+      <footer className="border-t border-gray-900 py-8 text-center text-gray-600 text-sm">
+        <p>© 2026 SnapLogic Inc. Tüm hakları saklıdır.</p>
+      </footer>
+    </div>
+  );
+}
+
+// Yardımcı Bileşen
+function FeatureCard({ title, desc }: { title: string, desc: string }) {
+  return (
+    <div className="p-6 rounded-2xl border border-gray-800 bg-gray-900/30 hover:bg-gray-900/50 transition-colors">
+      <div className="mb-4 bg-gray-800 w-12 h-12 rounded-lg flex items-center justify-center text-indigo-400 text-xl font-bold">
+        #
+      </div>
+      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <p className="text-gray-400">{desc}</p>
+    </div>
+  );
+}
