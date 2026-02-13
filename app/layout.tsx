@@ -17,21 +17,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        {/* Pi SDK - CRITICAL! Must be in HEAD */}
-        <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-      </head>
       <body className={inter.className}>
         {children}
 
-        {/* Pi SDK Init */}
+        {/* Pi SDK Yükleme */}
+        <Script
+          src="https://sdk.minepi.com/pi-sdk.js"
+          strategy="beforeInteractive"
+        />
+        
+        {/* Pi SDK Başlatma */}
         <Script id="pi-init" strategy="afterInteractive">
           {`
-            if (typeof window !== 'undefined') {
-              window.Pi.init({ 
+            if (typeof window !== 'undefined' && window.Pi) {
+              window.Pi.init({
                 version: "2.0",
                 sandbox: false
               });
+              console.log("Pi SDK Başlatıldı");
             }
           `}
         </Script>
