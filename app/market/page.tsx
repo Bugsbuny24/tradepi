@@ -9,19 +9,16 @@ export default async function MarketPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-      },
-    }
+    { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
   )
 
-  // Sadece yayında olan grafikleri çek
-  const { data: charts } = await supabase
+  // Veritabanından verileri çekmeyi dene
+  const { data: charts, error } = await supabase
     .from('charts')
     .select('*, profiles(username)')
-    .eq('is_public', true)
-    .order('created_at', { ascending: false })
+    .eq('is_public', true) // Kanka veritabanında bu 'true' olmalı!
+
+  if (error) console.error("Market Hatası:", error);
 
   return <MarketClient initialCharts={charts || []} />
 }
