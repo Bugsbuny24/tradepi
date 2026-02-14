@@ -7,7 +7,7 @@ export default async function MarketPage() {
   const supabase = createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const { data: packages } = await supabase
     .from('packages')
