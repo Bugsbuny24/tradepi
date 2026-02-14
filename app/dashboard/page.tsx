@@ -1,42 +1,45 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import EliteDashboardClient from './EliteDashboardClient';
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import EliteDashboardClient from './EliteDashboardClient'
 
-// Vercel'de hata vermemesi için dinamik render'ı zorunlu tutalım
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = cookies()
   
-  // Kullanıcıyı al
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    }
+  )
 
-  // 1. Kotaları Çek
+  // Kullanıcı ve veri çekme
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  // Kota bilgilerini çek
   const { data: quota } = await supabase
     .from('user_quotas')
     .select('*')
     .eq('user_id', user?.id)
-    .single();
+    .single()
 
-  // 2. Market Projelerini Çek
+  // Market ürünlerini çek
   const { data: marketCharts } = await supabase
     .from('charts')
-    .select('*, profiles(id)')
+    .select('*')
     .eq('is_public', true)
-    .limit(6);
-
-  // 3. Grafik Verilerini Çek (Analiz için)
-  const { data: analytics } = await supabase
-    .from('project_analytics')
-    .select('viewed_at')
-    .eq('chart_id', 'HERHANGI_BIR_ID_VEYA_GENEL');
+    .limit(6)
 
   return (
     <EliteDashboardClient 
       quota={quota || {}} 
-      chartStats={analytics || []} 
       marketCharts={marketCharts || []} 
     />
-  );
+  )
 }
