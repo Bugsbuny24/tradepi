@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createChartAction } from '@/app/actions/charts'
@@ -20,14 +19,11 @@ export default function CreateChartPage() {
   async function handleSubmit(formData: FormData) {
     setLoading(true)
     setError(null)
-    
     const result = await createChartAction(formData)
-    
     if (result.error) {
       setError(result.error)
       setLoading(false)
     } else {
-      // Başarılıysa düzenleme sayfasına yönlendir
       router.push(`/charts/${result.chartId}`)
     }
   }
@@ -45,20 +41,20 @@ export default function CreateChartPage() {
       </div>
 
       <form action={handleSubmit} className="space-y-8">
-        {/* Başlık Girişi */}
         <div className="space-y-2">
-          <label htmlFor="title" className="text-sm font-semibold text-slate-700">Grafik Başlığı</ts-label>
+          <label htmlFor="title" className="text-sm font-semibold text-slate-700">
+            Grafik Başlığı
+          </label>
           <input
             id="title"
             name="title"
             type="text"
             required
             placeholder="Örn: 2024 Satış Raporu"
-            className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-black"
           />
         </div>
 
-        {/* Tip Seçimi */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {CHART_TYPES.map((type) => (
             <label key={type.id} className="relative cursor-pointer group">
@@ -72,16 +68,12 @@ export default function CreateChartPage() {
           ))}
         </div>
 
-        {error && (
-          <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-100">
-            {error}
-          </div>
-        )}
+        {error && <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
         >
           {loading ? <Loader2 className="animate-spin" size={20} /> : 'Devam Et'}
         </button>
