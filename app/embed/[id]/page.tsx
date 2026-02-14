@@ -14,6 +14,12 @@ export default async function EmbedPage({ params, searchParams }: { params: { id
     .single()
 
   if (!chart || !chart.is_public) return notFound()
+// app/embed/[id]/page.tsx içinde uygun yere ekle:
+await supabase.from('project_analytics').insert({
+  chart_id: params.id,
+  viewer_ip: 'Kullanıcı IP', // (Next.js headers'dan alınabilir)
+  user_agent: 'Tarayıcı Bilgisi'
+})
 
   // Domain Kontrolü (Gelecekte buraya Request Header kontrolü eklenecek)
 
