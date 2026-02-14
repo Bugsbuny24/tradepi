@@ -1,10 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import EliteDashboardClient from './EliteDashboardClient'
+import EliteDashboardClient from './dashboard/EliteDashboardClient' // Yolu dashboard olarak güncelledik!
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardPage() {
+export default async function IndexPage() {
   const cookieStore = cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +18,7 @@ export default async function DashboardPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
   
-  // Kota ve Market verilerini senin tablolarına (charts, user_quotas) göre çekiyoruz
+  // Eğer kullanıcı giriş yapmamışsa veriler boş gitsin, hata vermesin
   const { data: quota } = await supabase.from('user_quotas').select('*').eq('user_id', user?.id).single()
   const { data: marketCharts } = await supabase.from('charts').select('*').eq('is_public', true).limit(4)
 
