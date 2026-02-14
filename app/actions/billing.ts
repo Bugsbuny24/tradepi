@@ -10,33 +10,26 @@ export async function createCheckoutIntent(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 1. Paket bilgilerini doğrula
-  const { data: pkg } = await supabase
+  // 1. Veritabanından Shopier URL'ini çek
+  const { data: pkg, error } = await supabase
     .from('packages')
-    .select('*')
+    .select('shopier_url, price_try, code')
     .eq('code', package_code)
     .single()
 
-  if (!pkg) throw new Error("Geçersiz paket!")
+  if (error || !pkg?.shopier_url) {
+    return { error: "Paket bulunamadı!" }
+  }
 
-  // 2. Checkout Intent oluştur (Şemandaki tabloya göre)
-  const { data: intent, error } = await supabase
-    .from('checkout_intents')
-    .insert({
-      user_id: user.id,
-      package_code: pkg.code,
-      amount: pkg.price_try,
-      currency: 'TRY',
-      provider: 'iyzico', // veya mock
-      provider_ref: `order_${Math.random().toString(36).substring(7)}`,
-      status: 'pending'
-    })
-    .select()
-    .single()
+  // 2. Takip kaydı oluştur
+  await supabase.from('checkout_intents').insert({
+    user_id: user.id,
+    package_code: pkg.code,
+    amount: pkg.price_try,
+    status: 'pending',
+    provider: 'shopier'
+  })
 
-  if (error) throw error
-
-  // 3. Burada gerçek ödeme sayfasına yönlendirme yapılır
-  // Şimdilik başarı sayfasına yönlendirelim (Simülasyon)
-  redirect(`/checkout/success?intent=${intent.id}`)
+  // 3. DOĞRUDAN SHOPIER'E UÇUR
+  redirect(pkg.shopier_url)
 }
