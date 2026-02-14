@@ -1,29 +1,29 @@
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+// Supabase bağlantısı
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
+export async function POST(req: Request) {
+  try {
+    // Shopier'den gelen JSON verisini oku
+    const body = await req.json();
+    const { platform_order_id, status, custom_params } = body;
+    
+    // Gönderdiğimiz user_id ve package_code'u çöz
+    const { userId, packageCode } = JSON.parse(custom_params);
 
-  // 1. Shopier'den gelen verileri yakala
-  const { platform_order_id, status, installation_id, custom_params } = req.body;
-  
-  // custom_params içinde gönderdiğimiz user_id ve package_code'u alıyoruz
-  const { userId, packageCode } = JSON.parse(custom_params);
-
-  if (status === 'success') {
-    try {
-      // 2. Veritabanında checkout_intent kaydını güncelle
-      const { data: intent, error: intentError } = await supabase
+    if (status === 'success') {
+      // 1. Ödeme kaydını güncelle
+      await supabase
         .from('checkout_intents')
         .update({ status: 'completed', provider_ref: platform_order_id })
-        .eq('user_id', userId)
-        .eq('package_code', packageCode)
-        .select()
-        .single();
+        .match({ user_id: userId, package_code: packageCode });
 
-      // 3. Kullanıcı kotalarını artır (Az önce yazdığımız SQL fonksiyonunu tetikler)
-      // Veya doğrudan RPC çağrısı yap:
+      // 2. Kredileri yükleyen RPC fonksiyonunu tetikle
       const { error: quotaError } = await supabase.rpc('add_credits_to_user', {
         p_user_id: userId,
         p_package_code: packageCode
@@ -31,12 +31,12 @@ export default async function handler(req, res) {
 
       if (quotaError) throw quotaError;
 
-      return res.status(200).send('OK');
-    } catch (err) {
-      console.error('Kredi yükleme hatası:', err);
-      return res.status(500).send('Internal Server Error');
+      return NextResponse.json({ message: 'Krediler başarıyla yüklendi' }, { status: 200 });
     }
-  }
 
-  res.status(400).send('Payment Failed');
+    return NextResponse.json({ message: 'Ödeme başarısız' }, { status: 400 });
+  } catch (err) {
+    console.error('Webhook Hatası:', err);
+    return NextResponse.json({ message: 'Sunucu Hatası' }, { status: 500 });
+  }
 }
