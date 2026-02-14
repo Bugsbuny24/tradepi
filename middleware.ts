@@ -22,21 +22,24 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // ÖNEMLİ: getUser() session'ı tazeler (refresh). 
+  // getSession() yerine güvenli olduğu için bunu kullanıyoruz.
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Kullanıcı giriş yapmamışsa dashboard, create, pricing ve admin sayfalarına girişi engelle
-  if (!user && (
+  // Korumalı yollar
+  const isProtectedRoute = 
     request.nextUrl.pathname.startsWith('/dashboard') || 
     request.nextUrl.pathname.startsWith('/create') || 
-    request.nextUrl.pathname.startsWith('/pricing') ||
     request.nextUrl.pathname.startsWith('/admin')
-  )) {
-    return NextResponse.redirect(new URL('/auth', request.url))
+
+  // Giriş yapmamış kullanıcıyı login'e at
+  if (!user && isProtectedRoute) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/create/:path*', '/pricing/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/create/:path*', '/admin/:path*'],
 }
