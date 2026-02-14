@@ -1,3 +1,4 @@
+// middleware.ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -22,18 +23,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // ÖNEMLİ: getUser() session'ı tazeler (refresh). 
-  // getSession() yerine güvenli olduğu için bunu kullanıyoruz.
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Korumalı yollar
-  const isProtectedRoute = 
+  // BURASI KRİTİK: /auth yerine /login yazıyoruz
+  if (!user && (
     request.nextUrl.pathname.startsWith('/dashboard') || 
     request.nextUrl.pathname.startsWith('/create') || 
     request.nextUrl.pathname.startsWith('/admin')
-
-  // Giriş yapmamış kullanıcıyı login'e at
-  if (!user && isProtectedRoute) {
+  )) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
