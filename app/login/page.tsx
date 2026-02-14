@@ -59,3 +59,12 @@ export default function LoginPage({
     </div>
   )
 }
+import { Suspense } from 'react'
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Yükleniyor...</div>}>
+      <LoginForm /> {/* Formu ayrı bir component'e çıkarıp burada çağır */}
+    </Suspense>
+  )
+}
