@@ -1,7 +1,5 @@
-import './globals.css';
-import { Inter } from 'next/font/google';
-import type { Metadata } from 'next';
 import { Metadata } from 'next'
+import './globals.css' // Kanka bu satır sende farklı olabilir, css dosyanın yoluna dikkat et!
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.tradepigloball.co'),
@@ -39,31 +37,14 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="tr">
-      <body>{children}</body>
-    </html>
-  )
-}
-
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'SnapLogic Engine | Enterprise Data',
-  description: 'Professional Data Visualization Platform',
-};
-
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-black text-white antialiased`}>
-        {children}
-      </body>
+    <html lang="tr">
+      <body className="antialiased">{children}</body>
     </html>
-  );
+  )
 }
