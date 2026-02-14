@@ -24,19 +24,19 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Kullanıcı giriş yapmamışsa dashboard, create ve admin sayfalarına girişi engelle
+  // Kullanıcı giriş yapmamışsa dashboard, create, pricing ve admin sayfalarına girişi engelle
   if (!user && (
     request.nextUrl.pathname.startsWith('/dashboard') || 
     request.nextUrl.pathname.startsWith('/create') || 
+    request.nextUrl.pathname.startsWith('/pricing') ||
     request.nextUrl.pathname.startsWith('/admin')
   )) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/auth', request.url))
   }
 
   return response
 }
 
-// TEK BİR CONFIG TANIMI: Hata burada düzeldi kanka
 export const config = {
-  matcher: ['/dashboard/:path*', '/create/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/create/:path*', '/pricing/:path*', '/admin/:path*'],
 }
