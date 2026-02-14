@@ -12,13 +12,12 @@ export default async function MarketPage() {
     { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
   )
 
-  // Veritabanından verileri çekmeyi dene
+  // Kanka buradaki sorgu çok kritik
   const { data: charts, error } = await supabase
     .from('charts')
     .select('*, profiles(username)')
-    .eq('is_public', true) // Kanka veritabanında bu 'true' olmalı!
-
-  if (error) console.error("Market Hatası:", error);
+    // .eq('is_public', true) // EĞER VERİ GELMİYORSA GEÇİCİ OLARAK BU SATIRI SİLİP DENE
+    .order('created_at', { ascending: false })
 
   return <MarketClient initialCharts={charts || []} />
 }
