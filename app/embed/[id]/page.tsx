@@ -1,18 +1,17 @@
-'use client' // Sayfayı client component'e çeviriyoruz
+'use client'
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
-import dynamic from 'next/dynamic'
-
-// Recharts bileşenlerini dinamik olarak, SSR kapalı şekilde yüklüyoruz
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false })
-const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false })
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false })
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false })
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false })
-const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false })
-const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false })
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  LineChart,
+  Line
+} from 'recharts'
 
 export default function EmbedPage({ params, searchParams }: { params: { id: string }, searchParams: { theme?: string } }) {
   const [chart, setChart] = useState<any>(null)
@@ -35,13 +34,12 @@ export default function EmbedPage({ params, searchParams }: { params: { id: stri
     fetchChart()
   }, [params.id])
 
-  if (loading) return null // Veya bir loading spinner
+  if (loading) return null
   if (!chart) return notFound()
 
   return (
     <div className={`w-screen h-screen flex flex-col ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
       <div className="flex-1 p-4">
-        {/* ResponsiveContainer'ın düzgün çalışması için Client-Side beklemesi şart */}
         <ResponsiveContainer width="100%" height="100%">
           {chart.chart_type === 'bar' ? (
             <BarChart data={chart.data_entries}>
