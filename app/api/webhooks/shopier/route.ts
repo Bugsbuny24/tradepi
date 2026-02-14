@@ -1,135 +1,35 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export async function POST(req: Request) {
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const data = await req.formData();
+  const shopier = Object.fromEntries(data);
+  const { custom_params, status, total_amount } = shopier;
 
-  try {
-    const body = await req.json();
-    
-    console.log("📨 Shopier Webhook:", body);
+  // JSON parametreleri (userId, targetId, type)
+  const { userId, targetId, type } = JSON.parse(custom_params as string);
 
-    const { 
-      platform_order_id,
-      status,
-      buyer_email,
-      buyer_name,
-      total_order_value,
-      custom_field_1,
-      custom_field_2,
-    } = body;
+  if (status !== 'success') return NextResponse.json({ ok: false });
 
-    await supabase.from("provider_webhooks").insert({
-      provider: "shopier",
-      event_type: status || "unknown",
-      provider_ref: platform_order_id,
-      payload: body,
+  if (type === 'CREDIT_PACKAGE') {
+    // 1. Kredi Paketi Yükleme (Örn: Mini Başlangıç)
+    await supabase.rpc('add_credits_to_user', { p_user_id: userId, p_package_code: targetId });
+  } 
+  
+  else if (type === 'MARKET_CHART') {
+    // 2. Başkasının grafiğini satın alma
+    const { data: chart } = await supabase.from('charts').select('user_id').eq('id', targetId).single();
+    await supabase.from('chart_purchases').insert({
+      chart_id: targetId,
+      buyer_id: userId,
+      seller_id: chart.user_id,
+      amount_paid: total_amount
     });
-
-    if (status === "success" || status === "completed") {
-      const userId = custom_field_1;
-      const packageCode = custom_field_2;
-
-      if (!userId || !packageCode) {
-        console.error("❌ Missing user_id or package_code");
-        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
-      }
-
-      const { data: intent, error: intentError } = await supabase
-        .from("checkout_intents")
-        .update({
-          status: "completed",
-          provider_ref: platform_order_id,
-          decided_at: new Date().toISOString(),
-          decision_note: "Payment successful via Shopier",
-          raw: body,
-        })
-        .eq("user_id", userId)
-        .eq("package_code", packageCode)
-        .eq("status", "pending")
-        .select()
-        .single();
-
-      if (intentError || !intent) {
-        console.error("❌ Intent not found");
-        return NextResponse.json({ ok: true, message: "Already processed" });
-      }
-
-      const { data: pkg } = await supabase
-        .from("packages")
-        .select("grants")
-        .eq("code", packageCode)
-        .single();
-
-      if (pkg?.grants) {
-        const grants = pkg.grants as any;
-
-        if (grants.quota_add) {
-          for (const [key, value] of Object.entries(grants.quota_add)) {
-            await supabase.rpc("increment_user_quota", {
-              p_user_id: userId,
-              p_quota_key: key.replace("_remaining", ""),
-              p_amount: value as number,
-            });
-          }
-        }
-
-        if (grants.credits) {
-          await supabase.rpc("increment_user_quota", {
-            p_user_id: userId,
-            p_quota_key: "credits",
-            p_amount: grants.credits,
-          });
-        }
-
-        if (grants.views) {
-          await supabase.rpc("increment_user_quota", {
-            p_user_id: userId,
-            p_quota_key: "embed_view",
-            p_amount: grants.views,
-          });
-        }
-      }
-
-      console.log(`✅ Payment successful - User: ${userId}, Package: ${packageCode}`);
-      return NextResponse.json({ ok: true, message: "Payment processed" });
-    }
-
-    if (status === "failed" || status === "cancelled") {
-      const userId = custom_field_1;
-      const packageCode = custom_field_2;
-
-      if (userId && packageCode) {
-        await supabase
-          .from("checkout_intents")
-          .update({
-            status: "failed",
-            decided_at: new Date().toISOString(),
-            decision_note: `Payment ${status}`,
-            raw: body,
-          })
-          .eq("user_id", userId)
-          .eq("package_code", packageCode)
-          .eq("status", "pending");
-      }
-
-      console.log("❌ Payment failed/cancelled");
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error("❌ Shopier webhook error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Alıcının profilinde 'total_spent' güncelle
+    await supabase.rpc('increment_total_spent', { uid: userId, amount: total_amount });
   }
-}
 
-export async function GET() {
-  return NextResponse.json({ 
-    status: "active",
-    endpoint: "/api/webhooks/shopier",
-    provider: "Shopier" 
-  });
+  return NextResponse.json({ ok: true });
 }
