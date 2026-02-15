@@ -3,29 +3,36 @@ import { Plus, BarChart2, TrendingUp, Wallet, Eye, Zap, ArrowRight, ShoppingCart
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+export default async function DashboardPage() {
+  const supabase = createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  // Middleware zaten kontrol ediyor, tekrar redirect gereksiz
 
+  // Quotas
+  const { data: quotas } = await supabase
     .from('user_quotas')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', user?.id)
     .single()
 
   // Charts
   const { data: charts } = await supabase
     .from('charts')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', user?.id)
     .order('created_at', { ascending: false })
     .limit(6)
 
   const { count: totalCharts } = await supabase
     .from('charts')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+    .eq('user_id', user?.id)
 
   const { count: publicCharts } = await supabase
     .from('charts')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+    .eq('user_id', user?.id)
     .eq('is_public', true)
 
   const credits = quotas?.credits_remaining || 0
@@ -40,7 +47,7 @@ import { redirect } from 'next/navigation'
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-black text-slate-900">Dashboard</h1>
-              <p className="text-slate-600 text-sm mt-1">Hoş geldin, {user.email?.split('@')[0]} 👋</p>
+              <p className="text-slate-600 text-sm mt-1">Hoş geldin, {user?.email?.split('@')[0]} 👋</p>
             </div>
             <Link 
               href="/create"
@@ -227,7 +234,7 @@ import { redirect } from 'next/navigation'
             href="/pricing"
             className="bg-white p-6 rounded-2xl border border-slate-200 hover:shadow-xl hover:border-blue-300 transition-all group"
           >
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
                 <ShoppingCart className="text-yellow-600" size={24} />
               </div>
@@ -245,7 +252,7 @@ import { redirect } from 'next/navigation'
             href="/create"
             className="bg-white p-6 rounded-2xl border border-slate-200 hover:shadow-xl hover:border-blue-300 transition-all group"
           >
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                 <Plus className="text-blue-600" size={24} />
               </div>
@@ -259,16 +266,17 @@ import { redirect } from 'next/navigation'
             </div>
           </Link>
 
-          <button
-            onClick={async () => {
-              'use server'
+          <Link
+            href="/auth"
+            onClick={async (e) => {
+              e.preventDefault()
               const supabase = createClient()
               await supabase.auth.signOut()
-              redirect('/auth')
+              window.location.href = '/auth'
             }}
-            className="bg-white p-6 rounded-2xl border border-slate-200 hover:shadow-xl hover:border-red-300 transition-all group text-left"
+            className="bg-white p-6 rounded-2xl border border-slate-200 hover:shadow-xl hover:border-red-300 transition-all group"
           >
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                 <Activity className="text-red-600" size={24} />
               </div>
@@ -280,7 +288,7 @@ import { redirect } from 'next/navigation'
               </div>
               <ArrowRight className="text-slate-400 group-hover:text-red-600 group-hover:translate-x-1 transition-all" size={20} />
             </div>
-          </button>
+          </Link>
         </div>
 
       </div>
