@@ -1,141 +1,118 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { 
-  Zap, Eye, BarChart3, Plus, 
-  ArrowUpRight, TrendingUp, Activity, Layout
+  LayoutDashboard, 
+  Plus, 
+  Zap, 
+  Globe, 
+  BarChart3, 
+  Settings, 
+  ArrowUpRight 
 } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth')
 
-  // Kullanıcının kota ve grafik verilerini paralel olarak çekiyoruz
-  const [quotaRes, chartsRes] = await Promise.all([
-    supabase.from('user_quotas').select('*').eq('user_id', user?.id).single(),
-    supabase.from('charts').select('id, title, created_at').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(3)
-  ])
+  // Kullanıcı profilini ve kredisini çekelim
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, user_quotas(*)')
+    .eq('id', user.id)
+    .single()
 
-  const quota = quotaRes.data
-  const recentCharts = chartsRes.data || []
+  const credits = profile?.user_quotas?.credits_remaining || 0
+  const tier = profile?.user_quotas?.tier || 'Free'
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#f8fafc] flex">
       
-      {/* 1. Hoşgeldin ve Hızlı Eylem */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter italic">
-            Dashboard
-          </h2>
-          <p className="text-slate-500 font-medium mt-1">
-            SnapLogic sistemine hoş geldin. Verilerin şu an güvende ve mühürlü.
-          </p>
-        </div>
-        <Link href="/dashboard/charts/new" className="bg-blue-600 text-white px-8 py-4 rounded-[2rem] font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-900 transition-all shadow-xl hover:-translate-y-1">
-          <Plus size={20} /> YENİ GRAFİK OLUŞTUR
-        </Link>
-      </div>
-
-      {/* 2. İstatistik Kartları */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Kredi Kartı */}
-        <div className="bg-slate-900 p-8 rounded-[3rem] text-white relative overflow-hidden group">
-          <Zap className="absolute -right-4 -top-4 text-white/5 group-hover:text-blue-500/10 transition-colors" size={160} />
-          <div className="relative z-10">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">API Kredi Durumu</span>
-            <div className="flex items-baseline gap-2 mt-4">
-              <h3 className="text-5xl font-black tracking-tighter">
-                {quota?.credits_remaining?.toLocaleString() || 0}
-              </h3>
-              <span className="text-sm font-bold text-slate-400">units</span>
-            </div>
-            <div className="mt-8 flex items-center justify-between text-[10px] font-black uppercase">
-              <span>Usage Level</span>
-              <span className="text-blue-400">Optimal</span>
-            </div>
-            <div className="mt-2 h-2 w-full bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 rounded-full w-2/3" />
-            </div>
-          </div>
-        </div>
-
-        {/* İzlenme Kartı */}
-        <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Toplam Gömülü İzlenme</span>
-            <div className="flex items-center gap-4 mt-4">
-              <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl">
-                <Activity size={24} />
-              </div>
-              <h3 className="text-4xl font-black text-slate-900 tracking-tighter">
-                {quota?.embed_view_remaining === -1 ? 'UNLIMITED' : 'ACTIVE'}
-              </h3>
-            </div>
-          </div>
-          <Link href="/dashboard/analytics" className="mt-8 flex items-center gap-2 text-xs font-black text-blue-600 hover:gap-3 transition-all">
-            DETAYLI ANALİZ <ArrowUpRight size={14} />
-          </Link>
-        </div>
-
-        {/* Grafik Sayısı Kartı */}
-        <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Aktif Grafiklerim</span>
-            <div className="flex items-center gap-4 mt-4">
-              <div className="bg-purple-50 text-purple-600 p-3 rounded-2xl">
-                <Layout size={24} />
-              </div>
-              <h3 className="text-4xl font-black text-slate-900 tracking-tighter">
-                {chartsRes.count || 0}
-              </h3>
-            </div>
-          </div>
-          <Link href="/dashboard/charts" className="mt-8 flex items-center gap-2 text-xs font-black text-purple-600 hover:gap-3 transition-all">
-            TÜMÜNÜ YÖNET <ArrowUpRight size={14} />
-          </Link>
-        </div>
-      </div>
-
-      {/* 3. Son Oluşturulan Grafikler ve Quick List */}
-      <div className="bg-white border border-slate-200 rounded-[3rem] overflow-hidden">
-        <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-          <h4 className="text-lg font-black text-slate-900 italic flex items-center gap-2">
-            <BarChart3 size={20} className="text-blue-600" /> Son Çalışmaların
-          </h4>
-          <Link href="/dashboard/charts" className="text-xs font-black text-slate-400 hover:text-blue-600 transition-colors">
-            TÜMÜNÜ GÖR
-          </Link>
+      {/* SIDEBAR (SOL MENÜ) */}
+      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col sticky top-0 h-screen">
+        <div className="p-6 flex items-center gap-3 border-b border-slate-50">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black">S</div>
+          <span className="text-xl font-black tracking-tighter italic">SnapLogic.io</span>
         </div>
         
-        <div className="divide-y divide-slate-100">
-          {recentCharts.length > 0 ? (
-            recentCharts.map((chart) => (
-              <div key={chart.id} className="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black text-xs">
-                    ID
-                  </div>
-                  <div>
-                    <h5 className="font-bold text-slate-800">{chart.title || 'Adsız Grafik'}</h5>
-                    <p className="text-[10px] font-medium text-slate-400">
-                      {new Date(chart.created_at).toLocaleDateString('tr-TR')} tarihinde mühürlendi
-                    </p>
-                  </div>
-                </div>
-                <Link href={`/dashboard/charts/${chart.id}`} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all">
-                  <ArrowUpRight size={18} />
+        <nav className="flex-1 p-4 space-y-2 mt-4">
+          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm">
+            <LayoutDashboard size={18} /> Dashboard
+          </Link>
+          <Link href="/dashboard/charts" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-all">
+            <BarChart3 size={18} /> My Widgets
+          </Link>
+          <Link href="/dashboard/marketplace" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-all">
+            <Globe size={18} /> Marketplace
+          </Link>
+          <Link href="/dashboard/settings" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-all">
+            <Settings size={18} /> Settings
+          </Link>
+        </nav>
+
+        {/* ALT KISIM: KREDİ KARTI GÖRÜNÜMLÜ KOTA */}
+        <div className="p-4 border-t border-slate-100">
+          <div className="bg-slate-900 rounded-2xl p-4 text-white relative overflow-hidden group">
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Plan</p>
+              <h4 className="text-lg font-black mb-4">{tier} Tier</h4>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400">{credits.toLocaleString()} Credits</span>
+                <Link href="/dashboard/billing" className="p-1 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                  <Plus size={16} />
                 </Link>
               </div>
-            ))
-          ) : (
-            <div className="p-20 text-center text-slate-400 font-bold">
-              Henüz bir grafik oluşturmamışsın kanka. İlkini mühürlemeye ne dersin?
             </div>
-          )}
+            <Zap className="absolute -bottom-4 -right-4 text-white/5 rotate-12" size={80} />
+          </div>
         </div>
-      </div>
+      </aside>
 
+      {/* ANA İÇERİK */}
+      <main className="flex-1 p-8 md:p-12">
+        {/* HEADER */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Hoş geldin, {profile?.full_name?.split(' ')[0] || 'Patron'}! 👋</h1>
+            <p className="text-slate-500 font-medium">İşte projenin bugünkü performans özeti.</p>
+          </div>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-blue-500/20 active:scale-95 transition-all text-sm">
+            <Plus size={20} strokeWidth={3} /> Yeni Widget Oluştur
+          </button>
+        </header>
+
+        {/* QUICK STATS (HIZLI İSTATİSTİKLER) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {[
+            { label: 'Aktif Widgetlar', value: '0', sub: 'Bu ay +0', color: 'blue' },
+            { label: 'Widget Gösterimi', value: '0', sub: 'Limit: 50k', color: 'purple' },
+            { label: 'Harcanan Kredi', value: '0', sub: 'Paket: Business', color: 'emerald' }
+          ].map((stat, i) => (
+            <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
+              <div className="flex items-end gap-2">
+                <h3 className="text-4xl font-black text-slate-900 leading-none">{stat.value}</h3>
+                <span className={`text-xs font-bold text-${stat.color}-600 mb-1`}>{stat.sub}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* LATEST PROJECTS (BOŞ DURUM) */}
+        <div className="bg-white border border-slate-200/60 rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center shadow-sm">
+          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6">
+            <BarChart3 size={40} />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2 tracking-tight">Henüz bir Widget oluşturmadın</h2>
+          <p className="text-slate-500 max-w-sm mb-8 font-medium">
+            Saniyeler içinde verilerini şık grafiklere dönüştür ve istediğin web sitesine göm.
+          </p>
+          <button className="flex items-center gap-2 text-blue-600 font-bold hover:gap-3 transition-all">
+            Hemen bir örnek oluştur <ArrowUpRight size={18} />
+          </button>
+        </div>
+      </main>
     </div>
   )
 }
