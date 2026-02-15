@@ -45,7 +45,7 @@ export default function NotFound() {
             <Link 
               href="/docs" 
               className="bg-slate-50 text-slate-600 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-white border border-transparent hover:border-slate-200 transition-all"
-            )
+            >
               <MessageSquare size={16} /> DESTEK AL
             </Link>
           </div>
