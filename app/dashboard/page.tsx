@@ -3,14 +3,7 @@ import { Plus, BarChart2, TrendingUp, Wallet, Eye, Zap, ArrowRight, ShoppingCart
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-export default async function DashboardPage() {
-  const supabase = createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth')
 
-  // Quotas
-  const { data: quotas } = await supabase
     .from('user_quotas')
     .select('*')
     .eq('user_id', user.id)
