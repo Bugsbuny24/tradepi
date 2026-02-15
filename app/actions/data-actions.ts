@@ -7,10 +7,15 @@ export async function bulkUploadData(chartId: string, entries: { label: string, 
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) throw new Error('Oturum aç kanka!')
+  if (!user) throw new Error('Yetkisiz erişim kanka!')
 
-  // 1. Önce o grafiğe ait eski verileri temizleyelim (Opsiyonel: Üzerine yazma mantığı)
-  await supabase.from('data_entries').delete().eq('chart_id', chartId)
+  // 1. Önce o grafiğe ait ESKİ verileri temizleyelim (Üzerine yazma mantığı)
+  const { error: deleteError } = await supabase
+    .from('data_entries')
+    .delete()
+    .eq('chart_id', chartId)
+
+  if (deleteError) throw new Error('Eski veriler silinemedi.')
 
   // 2. Yeni verileri sort_order ekleyerek hazırlayalım
   const dataToInsert = entries.map((entry, index) => ({
@@ -20,15 +25,17 @@ export async function bulkUploadData(chartId: string, entries: { label: string, 
     sort_order: index,
   }))
 
-  // 3. Toplu Insert (Bulk Insert)
-  const { error } = await supabase.from('data_entries').insert(dataToInsert)
+  // 3. TOPLU INSERT (Bulk Insert - Performans için kritik)
+  const { error: insertError } = await supabase
+    .from('data_entries')
+    .insert(dataToInsert)
 
-  if (error) {
-    console.error('Bulk upload hatası:', error.message)
-    return { error: 'Veriler yüklenemedi!' }
+  if (insertError) {
+    console.error('Bulk upload hatası:', insertError.message)
+    return { error: 'Veriler yüklenirken bir hata oluştu!' }
   }
 
+  revalidatePath('/dashboard/data')
   revalidatePath(`/dashboard/charts/${chartId}`)
   return { success: true }
 }
-
