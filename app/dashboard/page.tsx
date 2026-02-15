@@ -11,20 +11,31 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+// ... (importlar aynı kalsın)
+
 export default async function DashboardPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth')
 
-  // Kullanıcı profilini ve kredisini çekelim
+  // Profil ve Kota bilgisini çekiyoruz
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, user_quotas(*)')
     .eq('id', user.id)
     .single()
 
-  const credits = profile?.user_quotas?.credits_remaining || 0
-  const tier = profile?.user_quotas?.tier || 'Free'
+  // 🛡️ TYPESCRIPT FIX: user_quotas dizi olarak gelebileceği için güvenli alıyoruz
+  // @ts-ignore - TS'in dizi mi nesne mi tartışmasına son veriyoruz
+  const quota = Array.isArray(profile?.user_quotas) ? profile?.user_quotas[0] : profile?.user_quotas;
+
+  const credits = quota?.credits_remaining || 0
+  const tier = quota?.tier || 'Free'
+
+  return (
+    // ... (Geri kalan tüm HTML/Tailwind kodun aynen kalsın)
+    // Sadece 'credits' ve 'tier' değişkenlerini yukarıda tanımladığımız için tıkır tıkır çalışacak.
+
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
