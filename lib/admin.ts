@@ -1,33 +1,34 @@
 import { createClient } from '@/lib/supabase/server'
-// redirect'i kaldırdım, hata fırlatacağız
+// DİKKAT: redirect importunu kaldırdım!
 // import { redirect } from 'next/navigation' 
 
 export async function checkAdmin() {
   const supabase = createClient()
   
-  // 1. Kullanıcı var mı?
+  // 1. Kullanıcıyı kontrol et
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error("❌ HATA: Kullanıcı girişi yok görünüyorsun! (Auth User Yok)")
+    throw new Error("❌ HATA: Kullanıcı oturumu yok! (Auth User Null)")
   }
 
-  // 2. Admin tablosunu sorgula
+  // 2. Admin tablosuna bak (Log ekledim)
+  console.log("🔍 Admin sorgulanıyor. User ID:", user.id)
+
   const { data: admin, error } = await supabase
     .from('admins')
-    .select('*') // Tüm sütunları çek
+    .select('*')
     .eq('user_id', user.id)
     .single()
 
-  // 3. HATA VARSA YÖNLENDİRME, EKRANA BAS!
+  // 3. HATA VARSA YÖNLENDİRME YAPMA, EKRANA BAS!
   if (error) {
-    throw new Error(`🔥 SUPABASE HATASI: ${error.message} (Senin ID: ${user.id})`)
+    throw new Error(`🔥 VERİTABANI HATASI: ${error.message} (Kod: ${error.code})`)
   }
 
   if (!admin) {
-    throw new Error(`⛔ LİSTEDE YOKSUN: Senin ID (${user.id}) admins tablosunda bulunamadı!`)
+    throw new Error(`⛔ YETKİ YOK: Senin ID (${user.id}) 'admins' tablosunda bulunamadı!`)
   }
 
-  // Her şey yolundaysa kullanıcıyı dön
   return user
 }
