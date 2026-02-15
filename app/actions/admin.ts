@@ -3,17 +3,26 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-// Tüm kullanıcıları ve kredilerini getir
 export async function getUsers() {
   const supabase = createClient()
   
-  // Admin kontrolü
+  // 1. Kim olduğumuzu alalım
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: isAdmin } = await supabase.from('admins').select('user_id').eq('user_id', user?.id).single()
-  if (!isAdmin) return []
+  if (!user) return []
 
-  // Profilleri ve Kotaları birleştirip çekiyoruz
-  const { data: users } = await supabase
+  // 2. Admin kontrolü (Single kullanmıyoruz ki patlamasın)
+  const { data: adminCheck } = await supabase
+    .from('admins')
+    .select('user_id')
+    .eq('user_id', user.id)
+
+  if (!adminCheck || adminCheck.length === 0) {
+    console.log("Admin yetkisi yok");
+    return []
+  }
+
+  // 3. Kullanıcıları çek (RLS kapalı olduğu için artık gelecekler)
+  const { data: users, error } = await supabase
     .from('profiles')
     .select(`
       id,
@@ -27,14 +36,18 @@ export async function getUsers() {
     `)
     .order('created_at', { ascending: false })
 
+  if (error) {
+    console.error("Kullanıcılar çekilemedi:", error.message)
+    return []
+  }
+
   return users || []
 }
 
-// Kredi Ekleme Fonksiyonu (Patron Kıyağı)
 export async function addCredits(userId: string, amount: number) {
   const supabase = createClient()
   
-  // Önce mevcut krediyi bul
+  // Mevcut krediyi bul
   const { data: quota } = await supabase
     .from('user_quotas')
     .select('credits_remaining')
@@ -48,8 +61,7 @@ export async function addCredits(userId: string, amount: number) {
     .update({ credits_remaining: newAmount })
     .eq('user_id', userId)
 
-  if (error) return { error: error.message }
-  
-  revalidatePath('/admin')
-  return { success: true }
+  if (!error) {
+    revalidatePath('/admin')
+  }
 }
