@@ -105,6 +105,11 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+// app/page.tsx içine ekle:
+export const metadata = {
+  title: 'SnapLogic.io | Verilerini Canlandır, Her Yere Mühürle',
+  description: 'SnapLogic ile ham verilerini saniyeler içinde profesyonel grafiklere dönüştür. B2B ticaretin görsel gücünü keşfet.',
+}
 
       {/* 4. FOOTER */}
       <footer className="py-20 border-t border-slate-100">
