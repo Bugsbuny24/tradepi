@@ -9,10 +9,10 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-600">
       
-      {/* 1. HERO SECTION: İlk İzlenim */}
+      {/* 1. HERO SECTION */}
       <section className="relative pt-20 pb-32 overflow-hidden bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-black tracking-widest uppercase mb-8 animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-black tracking-widest uppercase mb-8">
             <Zap size={14} /> B2B Veri Görselleştirme Platformu
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-slate-900 mb-8 leading-[0.9]">
@@ -33,7 +33,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 2. FEATURES: "Bok Yenecek" Özellikler */}
+      {/* 2. FEATURES */}
       <section id="features" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -72,58 +72,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 3. PRICING: Kredi Paketleri (Satış Noktası) */}
-      <section className="py-24 bg-slate-900 rounded-[4rem] mx-4 my-10 text-white overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 blur-[120px]" />
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black mb-4">Ödediğin Kadar Kullan</h2>
-            <p className="text-slate-400 font-medium">Aylık abonelik stresi yok. İhtiyacın kadar kredi al, dilediğin zaman kullan.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { title: 'Starter', price: '₺0', credits: '100', features: ['5 Grafik', 'Temel Analitik', 'Watermark'] },
-              { title: 'Professional', price: '₺249', credits: '5,000', features: ['Sınırsız Grafik', 'Gelişmiş API', 'Snap Scripts', 'No Watermark'] },
-              { title: 'Enterprise', price: '₺899', credits: '25,000', features: ['Öncelikli Destek', 'Özel Domain Lock', 'Full Analitik', 'API Rate Limit+'] },
-            ].map((plan, i) => (
-              <div key={i} className={`p-10 rounded-[3rem] border ${i === 1 ? 'bg-white text-slate-900 border-white' : 'bg-slate-800/50 border-slate-700'} flex flex-col`}>
-                <h4 className="text-xl font-black mb-2">{plan.title}</h4>
-                <div className="text-4xl font-black mb-8">{plan.price} <span className="text-sm font-normal opacity-50">/ paket</span></div>
-                <ul className="space-y-4 mb-10 flex-1">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-3 text-sm font-bold">
-                      <CheckCircle2 size={18} className={i === 1 ? 'text-blue-600' : 'text-slate-500'} /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/auth" className={`w-full py-4 rounded-2xl font-black text-center transition-all ${i === 1 ? 'bg-blue-600 text-white shadow-xl shadow-blue-200' : 'bg-white text-slate-900'}`}>
-                  Satın Al
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-// app/page.tsx içine ekle:
-export const metadata = {
-  title: 'SnapLogic.io | Verilerini Canlandır, Her Yere Mühürle',
-  description: 'SnapLogic ile ham verilerini saniyeler içinde profesyonel grafiklere dönüştür. B2B ticaretin görsel gücünü keşfet.',
-}
-
-      {/* 4. FOOTER */}
-      <footer className="py-20 border-t border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-10">
-          <div className="space-y-4">
-            <h2 className="text-2xl font-black italic tracking-tighter text-blue-600">SnapLogic.io</h2>
-            <p className="text-slate-400 text-sm font-medium">© 2026 Tüm Hakları Mühürlenmiştir kanka.</p>
-          </div>
-          <div className="flex gap-8 text-sm font-black text-slate-600 uppercase tracking-widest">
-            <Link href="/docs" className="hover:text-blue-600 transition-colors">Dökümanlar</Link>
-            <Link href="/privacy" className="hover:text-blue-600 transition-colors">Gizlilik</Link>
-            <Link href="/contact" className="hover:text-blue-600 transition-colors">İletişim</Link>
-          </div>
-        </div>
+      {/* 3. FOOTER */}
+      <footer className="py-20 border-t border-slate-100 text-center">
+        <h2 className="text-2xl font-black italic text-blue-600">SnapLogic.io</h2>
+        <p className="text-slate-400 text-sm mt-2">© 2026 SnapLogic B2B Engine.</p>
       </footer>
     </div>
   )
