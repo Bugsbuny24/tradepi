@@ -1,24 +1,17 @@
-// app/layout.tsx
-import './globals.css' // CSS dosyanın yolu doğru olduğundan emin ol
-import { Inter } from 'next/font/google'
+import { Metadata } from 'next'
+import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
-
-export const metadata = {
-  title: 'SnapLogic.io | Veri Görselleştirme',
-  description: 'B2B veri görselleştirme ve pazar yeri platformu',
+export const metadata: Metadata = {
+  metadataBase: new URL('https://www.tradepigloball.co'),
+  title: 'Tradepigloball | Enterprise V3',
+  description: 'SnapLogic Veri Borsası ve Analiz Platformu',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="tr">
-      <body className={inter.className}>
-        {/* Navbar veya ortak bileşenleri buraya ekleyebilirsin */}
-        <main>{children}</main>
+      <body className="bg-black text-white antialiased">
+        {children}
       </body>
     </html>
   )
