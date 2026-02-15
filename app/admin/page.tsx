@@ -1,12 +1,16 @@
+// 👇 DİKKAT: Burası küçük harfle 'export' olmalı!
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
 import { checkAdmin } from '@/lib/admin'
 import { getUsers, addCredits } from '@/app/actions/admin'
-import { ShieldCheck, User, Zap, DollarSign } from 'lucide-react'
+import { ShieldCheck, User, Zap } from 'lucide-react'
 
 export default async function AdminPage() {
-  // Önce güvenlik kontrolü
+  // 1. Önce güvenlik kontrolü (Artık hata fırlatacak, yönlendirmeyecek)
   await checkAdmin()
+  
+  // 2. Kullanıcıları çek
   const users = await getUsers()
 
   return (
@@ -78,4 +82,3 @@ export default async function AdminPage() {
     </div>
   )
 }
-
