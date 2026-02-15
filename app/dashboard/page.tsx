@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase'
 import { Plus, Share2, Zap, Code, Layout, BarChart2, ArrowRight, Settings, Database } from 'lucide-react'
 import Link from 'next/link'
 import LogoutButton from './LogoutButton'
-
+import { Terminal } from "lucide-react";
 export default async function DashboardPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
