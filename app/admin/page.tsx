@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import { checkAdmin } from '@/lib/admin'
 import { getUsers, addCredits } from '@/app/actions/admin'
 import { ShieldCheck, User, Zap, DollarSign } from 'lucide-react'
