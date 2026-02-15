@@ -1,5 +1,4 @@
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+
 import { checkAdmin } from '@/lib/admin'
 import { getTableData } from '@/app/actions/admin'
 import { Database, Users, CreditCard, Layout, Terminal, Activity } from 'lucide-react'
