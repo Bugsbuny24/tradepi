@@ -1,18 +1,42 @@
-// types/database.ts
+// types/supabase.ts
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export interface Database {
   public: {
     Tables: {
+      user_quotas: {
+        Row: {
+          user_id: string
+          credits_remaining: number
+          api_call_remaining: number
+          embed_view_remaining: number
+          tier: string | null
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          credits_remaining?: number
+          api_call_remaining?: number
+          embed_view_remaining?: number
+          tier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          credits_remaining?: number
+          api_call_remaining?: number
+          embed_view_remaining?: number
+          tier?: string | null
+          updated_at?: string
+        }
+      },
       charts: {
         Row: {
           id: string
           user_id: string
           title: string | null
-          chart_type: string // 'bar' | 'line' | 'pie' vb.
+          chart_type: string
+          config: Json | null
           is_public: boolean
-          price: number | null
-          is_locked: boolean | null
           created_at: string
         }
       },
@@ -23,17 +47,6 @@ export interface Database {
           label: string
           value: number
           sort_order: number
-          created_at: string
-        }
-      },
-      user_quotas: {
-        Row: {
-          user_id: string
-          api_call_remaining: number
-          credits_remaining: number
-          embed_create_remaining: number
-          tier: string | null
-          updated_at: string
         }
       }
     }
