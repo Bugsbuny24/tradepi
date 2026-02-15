@@ -1,81 +1,91 @@
 import { createClient } from '@/lib/supabase'
-import { ShoppingCart, Check, Zap, Shield, CreditCard } from 'lucide-react'
+import { ShoppingCart, Check, Zap, Eye, Code2, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function StorePage() {
   const supabase = createClient()
   
-  // Aktif paketleri çekiyoruz
-  const { data: packages } = await supabase
+  // 1. Veritabanından gerçek paketleri çekiyoruz
+  const { data: packages, error } = await supabase
     .from('packages')
     .select('*')
     .eq('is_active', true)
     .order('price_try', { ascending: true })
 
+  if (error) {
+    return <div className="p-8 text-red-500 font-bold">Paketler yüklenirken hata oluştu kanka!</div>
+  }
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-12">
+    <div className="p-8 space-y-12 max-w-7xl mx-auto">
       <div className="text-center space-y-4">
-        <h1 className="text-5xl font-black text-slate-900 tracking-tight italic">
-          Kredi Paketleri
-        </h1>
-        <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">
-          Verilerini görselleştirmeye devam etmek için ihtiyacına en uygun paketi seç.
+        <h1 className="text-5xl font-black text-slate-900 tracking-tighter italic">Snap-Store</h1>
+        <p className="text-slate-500 font-medium max-w-xl mx-auto">
+          Gücü mühürle. Kredi ve izlenme limitlerini ihtiyacına göre belirle, B2B grafik motorunu tam kapasite çalıştır.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* Paket Izgarası */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {packages?.map((pkg) => (
-          <div key={pkg.id} className="bg-white border-2 border-slate-100 rounded-[3rem] p-8 shadow-xl hover:border-blue-500 transition-all flex flex-col relative group">
-            {pkg.code === 'PRO' && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1 rounded-full text-xs font-black tracking-widest uppercase">
-                En Popüler
+          <div 
+            key={pkg.id} 
+            className="group relative bg-white border-2 border-slate-100 p-8 rounded-[3rem] hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-2xl flex flex-col justify-between"
+          >
+            {/* Popüler Paket Rozeti (Örneğin 250 TL ve üzeri için) */}
+            {pkg.price_try >= 250 && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+                EN ÇOK TERCİH EDİLEN
               </div>
             )}
-            
-            <div className="mb-8">
-              <h3 className="text-2xl font-black text-slate-900">{pkg.title}</h3>
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-slate-900">₺{pkg.price_try}</span>
-                <span className="text-slate-400 font-bold text-sm">/ tek seferlik</span>
+
+            <div>
+              <div className="flex justify-between items-start mb-6">
+                <div className="bg-slate-50 p-3 rounded-2xl group-hover:bg-blue-50 transition-colors">
+                  <Zap className="text-slate-400 group-hover:text-blue-600" size={24} />
+                </div>
+                <div className="text-right">
+                  <span className="block text-3xl font-black text-slate-900 leading-none">₺{pkg.price_try}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Tek Seferlik</span>
+                </div>
               </div>
+
+              <h3 className="text-2xl font-black text-slate-900 mb-6">{pkg.title}</h3>
+
+              {/* Paket Özellikleri (Grants JSON'ından çekiliyor) */}
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center gap-3 text-slate-600 font-bold text-sm">
+                  <div className="bg-emerald-100 text-emerald-600 p-1 rounded-full"><Check size={12} strokeWidth={4} /></div>
+                  <Eye size={16} className="text-slate-400" /> {pkg.grants?.views?.toLocaleString()} Embed İzlenme
+                </li>
+                <li className="flex items-center gap-3 text-slate-600 font-bold text-sm">
+                  <div className="bg-emerald-100 text-emerald-600 p-1 rounded-full"><Check size={12} strokeWidth={4} /></div>
+                  <Zap size={16} className="text-slate-400" /> {pkg.grants?.credits?.toLocaleString()} API Kredisi
+                </li>
+                <li className="flex items-center gap-3 text-slate-600 font-bold text-sm">
+                  <div className="bg-emerald-100 text-emerald-600 p-1 rounded-full"><Check size={12} strokeWidth={4} /></div>
+                  <Code2 size={16} className="text-slate-400" /> SnapScript: {pkg.grants?.snapscript === 'full' ? 'Sınırsız Access' : 'Temel Seviye'}
+                </li>
+              </ul>
             </div>
 
-            <ul className="space-y-4 mb-10 flex-1">
-              {Object.entries(pkg.grants || {}).map(([key, value]) => (
-                <li key={key} className="flex items-center gap-3 text-slate-600 font-medium">
-                  <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-                    <Check size={14} strokeWidth={4} />
-                  </div>
-                  <span>{value as string} {key.replace('_', ' ')}</span>
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              href={`/dashboard/checkout/${pkg.code}`}
-              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-center group-hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+            {/* Shopier Linki - Gerçek URL'ye Gider */}
+            <a 
+              href={pkg.shopier_url} 
+              target="_blank" 
+              className="w-full bg-slate-900 text-white py-4 rounded-[1.5rem] font-black text-center flex items-center justify-center gap-2 group-hover:bg-blue-600 transition-all shadow-lg hover:-translate-y-1"
             >
-              <ShoppingCart size={20} />
-              Şimdi Satın Al
-            </Link>
+              SATIN AL <ArrowRight size={18} />
+            </a>
           </div>
         ))}
       </div>
 
-      {/* Güven Veren İkonlar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-10 border-t">
-        <div className="flex items-center gap-4 text-slate-400">
-          <Shield size={24} />
-          <span className="text-xs font-bold uppercase tracking-wider">256-Bit SSL Güvenli Ödeme</span>
-        </div>
-        <div className="flex items-center gap-4 text-slate-400">
-          <Zap size={24} />
-          <span className="text-xs font-bold uppercase tracking-wider">Anında Kredi Tanımlama</span>
-        </div>
-        <div className="flex items-center gap-4 text-slate-400">
-          <CreditCard size={24} />
-          <span className="text-xs font-bold uppercase tracking-wider">Tüm Kartlara Taksit İmkanı</span>
-        </div>
+      {/* Alt Bilgi */}
+      <div className="bg-blue-50 p-8 rounded-[2.5rem] text-center">
+        <p className="text-sm font-bold text-blue-900">
+          Ödeme yaptıktan sonra kredilerin anında hesabına mühürlenir. Kurumsal fatura taleplerin için destek birimiyle iletişime geç kanka.
+        </p>
       </div>
     </div>
   )
