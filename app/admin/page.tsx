@@ -1,109 +1,87 @@
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
 import { checkAdmin } from '@/lib/admin'
-import { getUsers, addCredits } from '@/app/actions/admin'
-import { ShieldCheck, User, Zap, AlertTriangle } from 'lucide-react'
+import { getTableData } from '@/app/actions/admin'
+import { Database, Users, CreditCard, Layout, Terminal, Activity } from 'lucide-react'
 
-export default async function AdminPage() {
-  // 🛡️ HATA KAPANI: Bir sorun çıkarsa ekrana basacağız
-  try {
-    // 1. Güvenlik ve Veri Çekme
-    await checkAdmin()
-    const users = await getUsers()
+export const dynamic = 'force-dynamic'
 
-    // --- HER ŞEY YOLUNDAYSA BURASI ÇALIŞIR ---
-    return (
-      <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-900">
+export default async function AdminPage({ searchParams }: { searchParams: { table?: string } }) {
+  await checkAdmin()
+  
+  const currentTable = searchParams.table || 'profiles'
+  const data = await getTableData(currentTable)
+
+  const tables = [
+    { id: 'profiles', label: 'Kullanıcılar', icon: <Users size={18}/>, cat: 'Core' },
+    { id: 'user_quotas', label: 'Kredi/Kota', icon: <CreditCard size={18}/>, cat: 'Billing' },
+    { id: 'charts', label: 'Grafikler', icon: <Layout size={18}/>, cat: 'Product' },
+    { id: 'chart_scripts', label: 'Scriptler', icon: <Terminal size={18}/>, cat: 'Product' },
+    { id: 'usage_logs', label: 'Kullanım Kayıtları', icon: <Activity size={18}/>, cat: 'Analytics' },
+    { id: 'checkout_intents', label: 'Ödemeler', icon: <Database size={18}/>, cat: 'Billing' },
+    // Diğer tüm tabloları buraya ekleyebilirsin...
+  ]
+
+  return (
+    <div className="flex min-h-screen bg-slate-900 text-slate-100 font-sans">
+      
+      {/* SOL MENÜ: TABLOLAR */}
+      <aside className="w-64 border-r border-slate-800 p-6 bg-slate-950">
+        <h2 className="text-xl font-black italic mb-8 flex items-center gap-2 text-blue-500">
+          <Database /> SNAP OPS
+        </h2>
         
-        {/* HEADER */}
-        <div className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter italic flex items-center gap-3">
-              <ShieldCheck className="text-blue-600" size={40} />
-              Yönetim Paneli
-            </h1>
-            <p className="text-slate-500 font-bold mt-2 ml-1">
-              Toplam Kullanıcı: <span className="text-blue-600">{users.length}</span>
-            </p>
-          </div>
+        <nav className="space-y-1">
+          {tables.map(t => (
+            <a
+              key={t.id}
+              href={`/admin?table=${t.id}`}
+              className={`flex items-center gap-3 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                currentTable === t.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'hover:bg-slate-800 text-slate-400'
+              }`}
+            >
+              {t.icon} {t.label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      {/* SAĞ TARAF: VERİ TABLOSU */}
+      <main className="flex-1 p-8 overflow-x-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-black uppercase tracking-tighter">{currentTable} Verileri</h1>
+          <p className="text-slate-500 font-bold">Toplam {data.length} kayıt listeleniyor.</p>
         </div>
 
-        {/* USER LIST */}
-        <div className="max-w-7xl mx-auto bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-900 text-white">
-              <tr>
-                <th className="p-6 font-black uppercase text-xs tracking-widest">Kullanıcı</th>
-                <th className="p-6 font-black uppercase text-xs tracking-widest">Email</th>
-                <th className="p-6 font-black uppercase text-xs tracking-widest">Kredi</th>
-                <th className="p-6 font-black uppercase text-xs tracking-widest text-right">İşlem</th>
+        <div className="bg-slate-950 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/50 border-b border-slate-800">
+                {data[0] && Object.keys(data[0]).map(key => (
+                  <th key={key} className="p-4 text-xs font-black uppercase text-slate-500 tracking-widest">{key}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {users.map((user: any) => (
-                <tr key={user.id} className="hover:bg-blue-50 transition-colors group">
-                  <td className="p-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold">
-                        <User size={20} />
-                      </div>
-                      <span className="font-bold text-slate-700">{user.full_name || 'İsimsiz'}</span>
-                    </div>
-                  </td>
-                  <td className="p-6 font-mono text-sm text-slate-500">{user.email}</td>
-                  <td className="p-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg font-black text-xs uppercase">
-                      <Zap size={14} fill="currentColor" />
-                      {user.user_quotas?.credits_remaining || 0}
-                    </div>
-                  </td>
-                  <td className="p-6 text-right">
-                    <form action={async () => {
-                      'use server'
-                      await addCredits(user.id, 100)
-                    }}>
-                      <button className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-green-600 transition-colors shadow-lg active:scale-95">
-                        +100
-                      </button>
-                    </form>
-                  </td>
+            <tbody className="divide-y divide-slate-900">
+              {data.map((row: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-900/30 transition-colors">
+                  {Object.values(row).map((val: any, j: number) => (
+                    <td key={j} className="p-4 text-sm font-medium text-slate-300 max-w-[200px] truncate">
+                      {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
-          {users.length === 0 && (
-            <div className="p-12 text-center text-slate-400 font-bold italic">
-              Henüz kimse yok patron.
+          
+          {data.length === 0 && (
+            <div className="p-20 text-center font-bold italic text-slate-600">
+              Bu tabloda henüz veri yok patron.
             </div>
           )}
         </div>
-      </div>
-    )
-
-  } catch (error: any) {
-    // 🔥 HATA VARSA BURASI ÇALIŞIR
-    return (
-      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-2xl w-full border-l-8 border-red-600">
-          <div className="flex items-start gap-4">
-            <AlertTriangle className="text-red-600 shrink-0" size={48} />
-            <div>
-              <h1 className="text-3xl font-black text-slate-900 mb-2">BİR SORUN VAR PATRON!</h1>
-              <div className="p-4 bg-red-100 rounded-xl border border-red-200 text-red-900 font-mono text-sm mb-4 break-all">
-                {error.message}
-              </div>
-              <p className="text-slate-500 text-sm">
-                Yukarıdaki hata mesajını bana kopyala veya fotoğrafını at, hemen çözelim.
-              </p>
-              
-              <a href="/dashboard" className="inline-block mt-6 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800">
-                Dashboard'a Dön
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+      </main>
+    </div>
+  )
 }
