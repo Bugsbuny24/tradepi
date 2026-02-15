@@ -1,34 +1,33 @@
 import { createClient } from '@/lib/supabase/server'
-// DİKKAT: redirect importunu kaldırdım!
-// import { redirect } from 'next/navigation' 
 
 export async function checkAdmin() {
   const supabase = createClient()
   
-  // 1. Kullanıcıyı kontrol et
-  const { data: { user } } = await supabase.auth.getUser()
+  // 1. Kullanıcıyı auth sisteminden al
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-  if (!user) {
-    throw new Error("❌ HATA: Kullanıcı oturumu yok! (Auth User Null)")
+  if (userError || !user) {
+    throw new Error("❌ OTURUM HATASI: Giriş yapmamış görünüyorsun. Lütfen önce giriş yap.")
   }
 
-  // 2. Admin tablosuna bak (Log ekledim)
-  console.log("🔍 Admin sorgulanıyor. User ID:", user.id)
-
-  const { data: admin, error } = await supabase
+  // 2. Admin tablosunu sorgula
+  // .single() kullanmıyoruz çünkü kayıt yoksa direkt uygulama hatası veriyor.
+  // .select() ile alıp boş olup olmadığını biz kontrol edeceğiz.
+  const { data: adminList, error: dbError } = await supabase
     .from('admins')
-    .select('*')
+    .select('user_id')
     .eq('user_id', user.id)
-    .single()
 
-  // 3. HATA VARSA YÖNLENDİRME YAPMA, EKRANA BAS!
-  if (error) {
-    throw new Error(`🔥 VERİTABANI HATASI: ${error.message} (Kod: ${error.code})`)
+  // 3. Veritabanı bağlantı hatası varsa bas
+  if (dbError) {
+    throw new Error(`🔥 VERİTABANI HATASI: ${dbError.message} (Kod: ${dbError.code})`)
   }
 
-  if (!admin) {
-    throw new Error(`⛔ YETKİ YOK: Senin ID (${user.id}) 'admins' tablosunda bulunamadı!`)
+  // 4. Liste boşsa yani bu ID admin tablosunda yoksa bas
+  if (!adminList || adminList.length === 0) {
+    throw new Error(`⛔ YETKİ REDDEDİLDİ: Senin ID (${user.id}) admin listesinde kayıtlı değil. Veritabanından 'admins' tablosunu kontrol et patron!`)
   }
 
+  // 5. Her şey tamamsa kullanıcıyı dön
   return user
 }
