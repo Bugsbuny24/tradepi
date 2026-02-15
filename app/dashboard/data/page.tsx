@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import { 
   Code2, Copy, Check, Globe, 
-  Terminal, ShieldLock, ExternalLink, Zap 
+  Terminal, ShieldCheck, ExternalLink, Zap // ShieldLock -> ShieldCheck yapıldı
 } from 'lucide-react'
 
 export default function ApiEmbedPage({ searchParams }: { searchParams: { id?: string } }) {
@@ -57,7 +57,7 @@ export default function ApiEmbedPage({ searchParams }: { searchParams: { id?: st
         {/* 2. API Anahtarı Bölümü */}
         <div className="bg-slate-900 rounded-[3rem] p-10 space-y-6 shadow-2xl relative overflow-hidden">
           <div className="flex items-center gap-3 text-blue-500">
-             <ShieldLock size={24} />
+             <ShieldCheck size={24} /> {/* ShieldLock -> ShieldCheck yapıldı */}
              <h3 className="font-black text-xl italic text-white">Snap-API Access</h3>
           </div>
           <p className="text-sm text-slate-400 font-medium leading-relaxed">
