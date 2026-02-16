@@ -1,15 +1,20 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server';
 
-export async function hasCredits(minAmount: number = 1) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
+/**
+ * Kullanıcının yeterli kredisi olup olmadığını kontrol eder.
+ */
+export async function hasEnoughCredits(userId: string, requiredAmount: number = 1) {
+  const supabase = createClient();
 
-  const { data: quota } = await supabase
-    .from('user_quotas') // profiles değil, user_quotas!
+  // ❌ HATALI: .from('profiles').select('credits')
+  // ✅ DOĞRU: user_quotas tablosu kullanımı
+  const { data, error } = await supabase
+    .from('user_quotas')
     .select('credits_remaining')
-    .eq('user_id', user.id)
-    .single()
+    .eq('user_id', userId)
+    .single();
 
-  return (quota?.credits_remaining || 0) >= minAmount
+  if (error || !data) return false;
+
+  return data.credits_remaining >= requiredAmount;
 }
