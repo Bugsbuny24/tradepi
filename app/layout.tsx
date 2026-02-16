@@ -1,34 +1,23 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  metadataBase: new URL('https://snaplogic.io'),
-  title: {
-    default: 'SnapLogic.io | B2B Veri Görselleştirme',
-    template: '%s | SnapLogic.io'
-  },
-  description: 'Verilerini profesyonel grafiklere dönüştür ve her yere mühürle.',
-  openGraph: {
-    type: 'website',
-    locale: 'tr_TR',
-    url: 'https://snaplogic.io',
-    siteName: 'SnapLogic.io',
-  },
-};
+import Navbar from '@/components/Navbar'
+import ToastProvider from '@/components/providers/ToastProvider'
+import './globals.css'
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="tr">
-      <body className={inter.className}>
-        {children}
+      <body className="antialiased text-slate-900 bg-[#f8fafc]">
+        <ToastProvider /> {/* Bildirimler her zaman üstte */}
+        <div className="flex flex-col min-h-screen">
+          <Navbar /> {/* Mobil uyumlu menü her zaman hazır */}
+          <main className="flex-1">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
-  );
+  )
 }
