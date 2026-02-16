@@ -1,40 +1,49 @@
-import { Command } from './ast'
-import { fetchSource } from '../sources/api'
+import { createSealedContext } from './seal';
 
-export async function run(commands: Command[]) {
-  let data: any = null
-  let widget: any = null
-  let style: any = {}
+interface ExecutionResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  duration?: number;
+}
 
-  for (const c of commands) {
-    if (c.type === 'source') {
-      data = await fetchSource(c.value)
-    }
+export async function executeSnapScript(
+  scriptCode: string, 
+  inputData: any
+): Promise<ExecutionResult> {
+  const start = performance.now();
+  const context = createSealedContext(inputData);
 
-    if (c.type === 'filter') {
-      data = data.filter((x: any) =>
-        eval(`x.${c.field} ${c.op} ${c.value}`)
-      )
-    }
+  try {
+    // Scripti bir fonksiyon içine hapsediyoruz
+    // Sadece context içindeki değişkenleri 'this' ve argüman olarak kullanabilir
+    const sandboxFunction = new Function('context', `
+      with(context) {
+        ${scriptCode}
+        return data; 
+      }
+    `);
 
-    if (c.type === 'map') {
-      data = data.map((x: any) => {
-        const o: any = {}
-        c.fields.forEach(f => (o[f] = x[f]))
-        return o
-      })
-    }
+    // 🔥 TIMEOUT KONTROLÜ (Promise.race ile)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('SnapScript Zaman Aşımı: Script 500ms limitini aştı.')), 500)
+    );
 
-    if (c.type === 'chart') {
-      widget = { type: 'chart', kind: c.kind, data }
-    }
+    const executionPromise = Promise.resolve().then(() => sandboxFunction(context));
 
-    if (c.type === 'glow') {
-      style.glow = c.color
-    }
+    const result = await Promise.race([executionPromise, timeoutPromise]);
 
-    if (c.type === 'sync') {
-      return { widget, style }
-    }
+    return {
+      success: true,
+      data: result,
+      duration: performance.now() - start
+    };
+
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message,
+      duration: performance.now() - start
+    };
   }
 }
