@@ -1,38 +1,40 @@
 'use server'
 
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
+import { generateSecureApiKey } from '@/lib/api-keys'
 import { revalidatePath } from 'next/cache'
-import crypto from 'crypto'
 
-export async function createApiKey(formData: FormData) {
+export async function createApiKeyAction(name: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Yetkisiz erişim' }
 
-  if (!user) throw new Error('Oturum açman lazım kanka!')
+  const { fullKey, hash, prefix } = generateSecureApiKey()
 
-  const scope = formData.get('scope') as string || 'General Key'
-  
-  // 1. Ham Token üret (Kullanıcıya sadece bir kez gösterilecek)
-  const rawToken = `sl_${crypto.randomBytes(24).toString('hex')}`
-  const tokenPrefix = rawToken.slice(0, 10)
-  
-  // 2. Token'ı hash'le (Veritabanında güvenli saklama)
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
-
-  // 3. Veritabanına (chart_tokens tablosuna) yaz
   const { error } = await supabase
     .from('chart_tokens')
-    .insert({
+    .insert([{
       user_id: user.id,
-      token_hash: tokenHash,
-      token_prefix: tokenPrefix,
-      scope: scope,
-      chart_id: null // Genel key olduğu için
-    })
+      name: name,
+      token_hash: hash,
+      token_prefix: prefix,
+      scope: 'read_write'
+    }])
 
   if (error) return { error: error.message }
 
-  revalidatePath('/dashboard/api')
-  // DİKKAT: Kullanıcıya rawToken'ı sadece şimdi gösterebiliriz!
-  return { success: true, key: rawToken }
+  revalidatePath('/dashboard/developer')
+  return { success: true, fullKey } // Anahtarı sadece burada döndürüyoruz
+}
+
+export async function revokeApiKey(tokenId: string) {
+  const supabase = createClient()
+  
+  const { error } = await supabase
+    .from('chart_tokens')
+    .delete()
+    .eq('id', tokenId)
+
+  revalidatePath('/dashboard/developer')
+  return { success: !error }
 }
