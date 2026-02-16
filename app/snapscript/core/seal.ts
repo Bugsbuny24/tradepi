@@ -1,11 +1,38 @@
-import crypto from 'crypto'
+/**
+ * SnapScript Sandbox Mührü
+ * Yasaklı API'leri ve objeleri filtreler.
+ */
 
-export function sealScript(code: string, domain: string) {
-  const hash = crypto.createHash('sha256').update(code + domain).digest('hex')
-  return { code, domain, hash }
-}
+const FORBIDDEN_KEYS = [
+  'process', 'env', 'global', 'window', 'document', 
+  'fetch', 'XMLHttpRequest', 'eval', 'Function', 
+  'setTimeout', 'setInterval', 'import'
+];
 
-export function verifySeal(sealed: any, domain: string) {
-  const h = crypto.createHash('sha256').update(sealed.code + domain).digest('hex')
-  return h === sealed.hash
+export function createSealedContext(initialData: any) {
+  // Scriptin erişebileceği güvenli objeler
+  const safeContext = {
+    data: initialData,
+    Math: Math,
+    JSON: {
+      parse: JSON.parse,
+      stringify: JSON.stringify
+    },
+    console: {
+      log: (...args: any[]) => console.log('[SnapScript Log]:', ...args)
+    }
+  };
+
+  // Proxy kullanarak yasaklı alanlara erişimi engelliyoruz
+  return new Proxy(safeContext, {
+    get(target, prop: string) {
+      if (FORBIDDEN_KEYS.includes(prop)) {
+        throw new Error(`Güvenlik İhlali: '${prop}' API'sine erişim SnapScript tarafından engellendi.`);
+      }
+      return (target as any)[prop];
+    },
+    has(target, prop: string) {
+      return prop in target || FORBIDDEN_KEYS.includes(prop);
+    }
+  });
 }
