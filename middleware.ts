@@ -1,50 +1,44 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next()
+  const { supabase, response } = createClient(request)
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          response.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options: any) {
-          response.cookies.set({ name, value: '', ...options })
-        },
-      },
+  // 1. Yol Kontrolü
+  const pathname = request.nextUrl.pathname
+  const isApiRoute = pathname.startsWith('/api')
+
+  // 2. API Rate Limiting (Sadece API rotaları için)
+  if (isApiRoute) {
+    const ip = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1'
+    
+    // Veritabanı fonksiyonunu çağır (Dakikada max 60 istek)
+    const { data: isAllowed, error } = await supabase.rpc('check_rate_limit', {
+      p_key: `rate_limit_ip_${ip}`,
+      p_limit_count: 60,
+      p_window_seconds: 60
+    })
+
+    if (error || !isAllowed) {
+      return NextResponse.json(
+        { error: 'Çok fazla istek gönderildi. Lütfen bir süre bekleyin.' },
+        { status: 429 } // Too Many Requests
+      )
     }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Kullanıcı yoksa ve protected route'daysa /auth'a yönlendir
-  if (
-    !user &&
-    (
-      request.nextUrl.pathname.startsWith('/dashboard') ||
-      request.nextUrl.pathname.startsWith('/create') ||
-      request.nextUrl.pathname.startsWith('/pricing') ||
-      request.nextUrl.pathname.startsWith('/admin')
-    )
-  ) {
-    return NextResponse.redirect(new URL('/auth', request.url))
   }
 
-  // Kullanıcı varsa ve /auth'daysa /dashboard'a yönlendir
-  if (user && request.nextUrl.pathname === '/auth') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // 3. Mevcut Auth Kontrolleri (Önceki kodların devamı buraya gelir)
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user && pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/auth', request.url))
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/create/:path*', '/pricing/:path*', '/admin/:path*', '/auth'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
